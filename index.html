@@ -3,120 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> - Croqui Inteligente - </title>
+    <title>CROQUI</title>
+    
+    <link rel="stylesheet" href="css/style.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-
-    <style>
-        :root {
-            --brand-color: #660099;
-            --brand-dark: #3a0057;
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-        }
-
-        body { 
-            font-family: 'Roboto', sans-serif; 
-            background-color: #eef1f5; 
-            display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden;
-        }
-        
-        .container { display: flex; flex: 1; height: 100%; }
-
-        .sidebar { 
-            width: 330px; 
-            background: linear-gradient(160deg, var(--brand-color) 0%, var(--brand-dark) 100%);
-            color: white; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; 
-            box-shadow: 4px 0 15px rgba(0,0,0,0.3); z-index: 10;
-        }
-        .sidebar::-webkit-scrollbar { width: 6px; }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
-
-        .app-header { text-align: center; margin-bottom: 5px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; }
-        .app-header h2 { margin: 0; font-size: 20px; letter-spacing: 1px; }
-        .app-header span { font-size: 10px; opacity: 0.8; text-transform: uppercase; letter-spacing: 2px; }
-
-        .tool-group {
-            background: var(--glass-bg); border: 1px solid var(--glass-border);
-            border-radius: 10px; padding: 10px; backdrop-filter: blur(5px);
-        }
-        .tool-group h3 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: rgba(255,255,255,0.7); font-weight: 500; }
-
-        button { 
-            padding: 8px 10px; margin-bottom: 5px; width: 100%; cursor: pointer; border: none; border-radius: 6px; 
-            font-size: 12px; font-weight: 500; display: flex; align-items: center; transition: all 0.2s ease;
-            background-color: rgba(255,255,255,0.95); color: #333; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        button span.icon { margin-right: 8px; font-size: 14px; width: 20px; text-align: center; }
-
-        .btn-infra { border-left: 3px solid #7f8c8d; }
-        .btn-medida { background-color: #fff8e1; color: #d35400; border: 1px solid #f1c40f; }
-        .btn-rua { background: linear-gradient(90deg, #3498db, #2980b9); color: white; border: none; }
-        
-        .btn-cabo-novo { background-color: #ffeff0; color: #c0392b; border: 1px solid #e74c3c; }
-        .btn-cabo-ret { background-color: #e8f8f5; color: #27ae60; border: 1px solid #2ecc71; }
-        .btn-cordoalha { background-color: #eafaf1; color: #2980b9; border: 1px solid #3498db; }
-        
-        .btn-cs { border-left: 3px solid #34495e; background-color: #eaeded; } /* Estilo novo para CS */
-
-        .btn-parar { background-color: #95a5a6; color: white; opacity: 0.8; }
-        .btn-salvar { background: linear-gradient(45deg, #00b09b, #96c93d); color: white; font-weight: bold; padding: 12px; margin-top: auto; justify-content: center; }
-
-        .ativo { background-color: #fff !important; border: 2px solid #f1c40f !important; transform: scale(1.02); }
-
-        .ctop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-        .ctop-btn { height: 25px; font-size: 10px; justify-content: center; border: 1px solid rgba(0,0,0,0.1); }
-
-        select, input { width: 100%; padding: 6px; margin-bottom: 6px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px; background: #fff; }
-
-        .canvas-area { 
-            flex: 1; background-color: #e0e5ec; 
-            background-image: radial-gradient(#cbd2d9 1px, transparent 1px); background-size: 20px 20px;
-            display: flex; justify-content: center; align-items: center; overflow: auto; padding: 30px;
-        }
-        .canvas-wrapper { box-shadow: 0 10px 30px rgba(0,0,0,0.15); border-radius: 4px; overflow: hidden; background: white; }
-    </style>
 </head>
 <body>
+
+<div id="modalAjuda" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharAjuda()">&times;</span>
+        <h2 style="margin-top:0; color:#333;">Como usar o CROQUI</h2>
+        <div class="help-step"><h4>1. Arrastar e Soltar</h4><p>🖱️ Arraste itens para a tela.</p></div>
+        <div class="help-step"><h4>2. Desenhar Cabos</h4><p>🔌 Use Instalar/Retirar e arraste entre postes.</p></div>
+        <div class="help-step"><h4>3. Notas Inteligentes</h4><p>📝 Digite "12 Fusões" no Post-it para contar no Excel.</p></div>
+        <button class="btn-salvar" onclick="fecharAjuda()">ENTENDI!</button>
+    </div>
+</div>
 
 <div class="container">
     <div class="sidebar">
         <div class="app-header">
-            <h2>Croqui</h2>
+            <h2>CROQUI</h2>
             <span>Solução de Campo</span>
+            <button class="btn-help-header" onclick="abrirAjuda()">❓ COMO USAR</button>
         </div>
 
         <div class="tool-group">
-            <h3>📍 Rua / Avenida</h3>
-            <button class="btn-rua" onclick="addNomeRua()"><span class="icon">🅰️</span> Nome da Rua</button>
+            <h3>📍 Identificação / Notas</h3>
+            <button class="btn-action" onclick="addNomeRua()"><span class="icon">🅰️</span> Nome da Rua</button>
+            <button class="btn-action" onclick="addObservacao()"><span class="icon">📝</span> Nota (Materiais)</button>
+            <button id="btnArrow" class="btn-seta" onclick="ativarModoLinha('seta')"><span class="icon">↗️</span> Seta de Apontar</button>
         </div>
 
         <div class="tool-group">
-            <h3>🏗️ Infraestrutura</h3>
-            <button class="btn-infra" onclick="addPoste('XC')"><span class="icon">I</span>Poste Concreto (XC)</button>
-            <button class="btn-infra" onclick="addPoste('XM')"><span class="icon">I</span>Poste Madeira (XM)</button>
-            <button class="btn-infra" onclick="addSubidaLateral()" style="border-left: 3px solid #e74c3c;"><span class="icon">📈</span>Subida Lateral</button>
+            <h3>🏗️ Infraestrutura (Arraste)</h3>
+            <button draggable="true" ondragstart="drag(event, 'posteXC')" class="btn-infra"><span class="icon">I</span>Poste Concreto</button>
+            <button draggable="true" ondragstart="drag(event, 'posteXM')" class="btn-infra"><span class="icon">I</span>Poste Madeira</button>
+            <button draggable="true" ondragstart="drag(event, 'subidaLateral')" class="btn-infra" style="border-left: 3px solid #e74c3c;"><span class="icon">📈</span>Subida Lateral</button>
         </div>
 
         <div class="tool-group">
-            <h3>📦 Caixas e CS</h3>
+            <h3>📦 Caixas e CS (Arraste)</h3>
             <div style="display: flex; gap: 4px;">
-                <button class="btn-cx-exist" onclick="addCEO(true)">⚫ Existente</button>
-                <button class="btn-cx-nova" onclick="addCEO(false)">⚪ Nova (+VT)</button>
+                <button draggable="true" ondragstart="drag(event, 'ceoExist')" class="btn-cx-exist">⚫ Exist.</button>
+                <button draggable="true" ondragstart="drag(event, 'ceoNova')" class="btn-cx-nova">⚪ Nova</button>
             </div>
-            <button class="btn-cs" onclick="addCS()"><span class="icon">⬛</span>Caixa Subt. (CS)</button>
-        </div>
-
-        <div class="tool-group">
-            <h3>📏 Medições (PP)</h3>
-            <div style="display: flex; gap: 4px;">
-                <button class="btn-medida" onclick="addMedida('instalado')">Instalado</button>
-                <button class="btn-medida" onclick="addMedida('retirado')" style="color: #27ae60;">Retirado</button>
-            </div>
-            <button class="btn-medida" onclick="addMedida('cordoalha')" style="color: #2980b9;">Medir Cordoalha</button>
+            <button draggable="true" ondragstart="drag(event, 'cs')" class="btn-cs"><span class="icon">⬛</span>Caixa Subt. (CS)</button>
         </div>
 
         <div class="tool-group">
@@ -130,312 +66,52 @@
         </div>
 
         <div class="tool-group">
-            <h3>🎨 CTOP</h3>
+            <h3>📏 Medições (PP)</h3>
+            <div style="display: flex; gap: 4px;">
+                <button class="btn-medida" onclick="addMedida('instalado')">Instalado</button>
+                <button class="btn-medida" onclick="addMedida('retirado')" style="color: #27ae60; border-color: #27ae60; background:#e8f8f5;">Retirado</button>
+            </div>
+            <button class="btn-medida" onclick="addMedida('cordoalha')" style="color: #2980b9; border-color: #2980b9; background:#eafaf1;">Medir Cordoalha</button>
+        </div>
+
+        <div class="tool-group">
+            <h3>🎨 CTOP (Arraste)</h3>
             <div class="ctop-grid">
-                <button class="ctop-btn" style="background:#EE82EE;" onclick="addCTOP('#EE82EE', '01:08')">01:08</button>
-                <button class="ctop-btn" style="background:#FF0000; color:white;" onclick="addCTOP('#FF0000', '09:16')">09:16</button>
-                <button class="ctop-btn" style="background:#0000FF; color:white;" onclick="addCTOP('#0000FF', '17:24')">17:24</button>
-                <button class="ctop-btn" style="background:#FFFFFF;" onclick="addCTOP('#FFFFFF', '25:32')">25:32</button>
-                <button class="ctop-btn" style="background:#FFFF00;" onclick="addCTOP('#FFFF00', '33:40')">33:40</button>
-                <button class="ctop-btn" style="background:#008000; color:white;" onclick="addCTOP('#008000', '41:48')">41:48</button>
-                <button class="ctop-btn" style="background:#008000; color:white;" onclick="addCTOP('#008000', '49:56')">49:56</button>
-                <button class="ctop-btn" style="background:#008000; color:white;" onclick="addCTOP('#008000', '57:64')">57:64</button>
+                <button draggable="true" ondragstart="drag(event, 'ctop-EE82EE-01:08')" class="ctop-btn" style="background:#EE82EE;">01:08</button>
+                <button draggable="true" ondragstart="drag(event, 'ctop-FF0000-09:16')" class="ctop-btn" style="background:#FF0000; color:white;">09:16</button>
+                <button draggable="true" ondragstart="drag(event, 'ctop-0000FF-17:24')" class="ctop-btn" style="background:#0000FF; color:white;">17:24</button>
+                <button draggable="true" ondragstart="drag(event, 'ctop-FFFFFF-25:32')" class="ctop-btn" style="background:#FFFFFF;">25:32</button>
+                <button draggable="true" ondragstart="drag(event, 'ctop-FFFF00-33:40')" class="ctop-btn" style="background:#FFFF00;">33:40</button>
+                <button draggable="true" ondragstart="drag(event, 'ctop-008000-41:48')" class="ctop-btn" style="background:#008000; color:white;">41:48</button>
+                <button draggable="true" ondragstart="drag(event, 'ctop-008000-49:56')" class="ctop-btn" style="background:#008000; color:white;">49:56</button>
+                <button draggable="true" ondragstart="drag(event, 'ctop-008000-57:64')" class="ctop-btn" style="background:#008000; color:white;">57:64</button>
             </div>
         </div>
 
         <div class="tool-group">
-            <h3>Tipos de cabo</h3>
+            <h3>🏷️ Tipo de Cabo</h3>
             <select id="tipoCabo" onchange="atualizarBitolas()">
                 <option value="CFOA SM AS">CFOA SM AS</option>
                 <option value="DROP">DROP</option>
             </select>
-            <select id="bitolaCabo">
-                <option value="12">12 FO</option>
-                <option value="24">24 FO</option>
-                <option value="36">36 FO</option>
-                <option value="48">48 FO</option>
-                <option value="72">72 FO</option>
-                <option value="144">144 FO</option>
-            </select>
-            <button onclick="addEtiquetaCabo()" style="background: #ecf0f1;">Inserir tipo de cabo</button>
+            <select id="bitolaCabo"></select>
+            <button onclick="addEtiquetaCabo()" class="btn-action" style="background: #ecf0f1;">Inserir Tipo de Cabo</button>
         </div>
 
         <div style="margin-top: auto;">
-             <button onclick="deleteSelected()" style="background-color: #c0392b; color: white;">🗑️ Apagar Item</button>
+             <button class="btn-action" onclick="deleteSelected()" style="background-color: #c0392b; color: white;">🗑️ Apagar Item</button>
              <button class="btn-salvar" onclick="finalizarTudo()">💾 SALVAR E GERAR EXCEL</button>
         </div>
     </div>
 
-    <div class="canvas-area">
+    <div class="canvas-area" id="dropZone">
         <div class="canvas-wrapper">
             <canvas id="c" width="1100" height="700"></canvas>
         </div>
     </div>
 </div>
 
-<script>
-    var canvas = new fabric.Canvas('c');
-    var line;
-    var isDrawingLine = false;
-    var modoLinha = null;
-
-    function resetFerramentas() {
-        modoLinha = null;
-        isDrawingLine = false;
-        document.getElementById('btnInstall').classList.remove('ativo');
-        document.getElementById('btnRet').classList.remove('ativo');
-        document.getElementById('btnCord').classList.remove('ativo');
-        document.getElementById('btnPare').classList.remove('ativo');
-        canvas.selection = true;
-        canvas.defaultCursor = 'default';
-        canvas.forEachObject(function(o) { o.selectable = true; });
-    }
-
-    function atualizarBitolas() {
-        var tipo = document.getElementById("tipoCabo").value;
-        var selectBitola = document.getElementById("bitolaCabo");
-        selectBitola.innerHTML = "";
-        var opcoes = [];
-        if (tipo === "DROP") { opcoes = ["01", "04"]; } 
-        else { opcoes = ["12", "24", "36", "48", "72", "144"]; }
-        opcoes.forEach(function(valor) {
-            var opt = document.createElement("option");
-            opt.value = valor;
-            opt.innerHTML = valor + (tipo === "DROP" ? " FO" : " FO");
-            selectBitola.appendChild(opt);
-        });
-    }
-
-    function ativarModoLinha(modo) {
-        resetFerramentas();
-        modoLinha = modo;
-        if (modo) {
-            if(modo === 'instalar') document.getElementById('btnInstall').classList.add('ativo');
-            if(modo === 'retirar') document.getElementById('btnRet').classList.add('ativo');
-            if(modo === 'cordoalha') document.getElementById('btnCord').classList.add('ativo');
-            canvas.selection = false;
-            canvas.defaultCursor = 'crosshair';
-            canvas.forEachObject(function(o) { o.selectable = false; });
-        } else {
-            document.getElementById('btnPare').classList.add('ativo');
-        }
-    }
-
-    canvas.on('mouse:down', function(o){
-        if (!modoLinha) return;
-        isDrawingLine = true;
-        var pointer = canvas.getPointer(o.e);
-        var points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
-        var cor, largura, dash;
-        if (modoLinha === 'instalar') { cor = '#e74c3c'; largura = 4; dash = null; } 
-        else if (modoLinha === 'retirar') { cor = '#2ecc71'; largura = 4; dash = null; }
-        else if (modoLinha === 'cordoalha') { cor = '#3498db'; largura = 2; dash = [10, 5]; }
-        line = new fabric.Line(points, { strokeWidth: largura, stroke: cor, strokeDashArray: dash, originX: 'center', originY: 'center', selectable: false });
-        canvas.add(line);
-    });
-
-    canvas.on('mouse:move', function(o){
-        if (!isDrawingLine) return;
-        var pointer = canvas.getPointer(o.e);
-        line.set({ x2: pointer.x, y2: pointer.y });
-        canvas.renderAll();
-    });
-
-    canvas.on('mouse:up', function(o){ isDrawingLine = false; if(line) line.setCoords(); });
-
-    // --- OBJETOS ---
-
-    // NOVA FUNÇÃO: ADICIONAR CAIXA SUBTERRÂNEA (CS)
-    function addCS() {
-        resetFerramentas();
-        let numero = prompt("Número da CS (Digite 00 para S/N):", "");
-
-        if (numero !== null) {
-            let label = "";
-            // Lógica S/N
-            if (numero === "0" || numero === "00" || numero === "000") {
-                label = "CS S/N";
-            } else {
-                // Garante no máximo 3 dígitos se o usuário digitar mais
-                label = "CS " + numero.substring(0, 3);
-            }
-
-            // Desenha Retângulo Cinza
-            var rect = new fabric.Rect({
-                width: 60, height: 35,
-                fill: '#bdc3c7', stroke: '#34495e', strokeWidth: 2, rx: 2, ry: 2
-            });
-
-            var text = new fabric.Text(label, {
-                fontSize: 14, fill: '#2c3e50', fontWeight: 'bold', fontFamily: 'Roboto',
-                originX: 'center', originY: 'center',
-                left: 30, top: 17.5 // Centralizado no retângulo
-            });
-
-            var group = new fabric.Group([rect, text], { left: 200, top: 200 });
-            
-            group.set('id_tipo', 'caixa_subterranea');
-            canvas.add(group);
-        }
-    }
-
-    function addMedida(tipo) {
-        resetFerramentas();
-        let label = "", corFundo = "";
-        if (tipo === 'instalado') { label = "Rede Nova"; corFundo = "#FFD700"; }
-        if (tipo === 'retirado') { label = "Rede Ret."; corFundo = "#a9dfbf"; }
-        if (tipo === 'cordoalha') { label = "Cordoalha"; corFundo = "#aed6f1"; }
-        let metros = prompt("Metragem " + label + " (m):", "40");
-        if (metros) {
-            var text = new fabric.Text(label + ": " + metros + "m", { fontSize: 16, fontWeight: 'bold', backgroundColor: corFundo, left: 300, top: 300, padding: 5 });
-            text.set('id_tipo', 'medida'); text.set('sub_tipo', tipo); text.set('valor_metragem', parseFloat(metros));
-            canvas.add(text);
-        }
-    }
-
-    function addNomeRua() {
-        resetFerramentas();
-        let nomeRua = prompt("Nome da Rua / Nº:", "Rua Exemplo, 123");
-        if (nomeRua) {
-            var text = new fabric.Text(nomeRua, { fontSize: 24, fontFamily: 'Roboto', fill: '#2980b9', fontWeight: 'bold', left: 400, top: 50 });
-            canvas.add(text);
-        }
-    }
-
-    function addSubidaLateral() {
-        resetFerramentas();
-        var polyline = new fabric.Polyline([ {x: 0, y: 0}, {x: 20, y: 0}, {x: 30, y: -30}, {x: 40, y: 30}, {x: 50, y: 0}, {x: 70, y: 0} ], { fill: 'transparent', stroke: 'red', strokeWidth: 3, left: 200, top: 200 });
-        canvas.add(polyline);
-    }
-
-    function addPoste(tipo) {
-        resetFerramentas();
-        var circle = new fabric.Circle({ radius: 8, fill: '#34495e', left: 0, top: 0 });
-        var text = new fabric.Text(tipo, { fontSize: 20, fontWeight: 'bold', left: 18, top: -10, fontFamily: 'Roboto' });
-        var group = new fabric.Group([ circle, text ], { left: 100, top: 100 });
-        group.set('id_tipo', 'poste'); group.set('sub_tipo', tipo);
-        canvas.add(group);
-    }
-
-    function addCEO(existente) {
-        resetFerramentas();
-        if (existente) {
-            var circle = new fabric.Circle({ radius: 15, fill: '#2c3e50', stroke: '#2c3e50' });
-            var group = new fabric.Group([circle], { left: 150, top: 150 });
-            group.set('id_tipo', 'ceo_existente'); canvas.add(group);
-        } else {
-            var circle = new fabric.Circle({ radius: 15, fill: 'white', stroke: '#2c3e50', strokeWidth: 3 });
-            var textVt = new fabric.Text("VT: 20m", { fontSize: 14, fill: '#c0392b', fontWeight: 'bold', left: 35, top: 5 });
-            var group = new fabric.Group([circle, textVt], { left: 150, top: 150 });
-            group.set('id_tipo', 'ceo_nova'); canvas.add(group);
-        }
-    }
-
-    function addCTOP(cor, range) {
-        resetFerramentas();
-        var rect = new fabric.Rect({ width: 35, height: 35, fill: cor, stroke: '#333', strokeWidth: 1 });
-        var text = new fabric.Text(range, { fontSize: 12, backgroundColor: 'rgba(255,255,255,0.9)', top: 38, fontFamily: 'Roboto' });
-        var group = new fabric.Group([rect, text], { left: 200, top: 200 });
-        group.set('id_tipo', 'ctop'); group.set('sub_tipo', range);
-        canvas.add(group);
-    }
-
-    function addEtiquetaCabo() {
-        resetFerramentas();
-        var txt = document.getElementById('tipoCabo').value + " " + document.getElementById('bitolaCabo').value;
-        var text = new fabric.Text(txt, { fontSize: 14, backgroundColor: '#fff3cd', left: 300, top: 300, padding: 6, stroke: '#333', strokeWidth: 0.2 });
-        canvas.add(text);
-    }
-
-    function deleteSelected() {
-        var activeObjects = canvas.getActiveObjects();
-        if (activeObjects.length) { canvas.discardActiveObject(); activeObjects.forEach(function(o) { canvas.remove(o); }); }
-    }
-    document.addEventListener('keydown', function(e) { if(e.key === "Delete") { deleteSelected(); } });
-
-    // --- FINALIZAÇÃO ---
-
-    function finalizarTudo() {
-        resetFerramentas();
-        
-        let dados = {
-            redeInstalada: 0, redeRetirada: 0, cordoalha: 0,
-            postesXC: 0, postesXM: 0, ceoNova: 0, ceoExistente: 0, csCount: 0, ctops: {}
-        };
-
-        canvas.getObjects().forEach(function(obj) {
-            if (obj.id_tipo === 'medida') {
-                if (obj.sub_tipo === 'instalado') dados.redeInstalada += obj.valor_metragem;
-                if (obj.sub_tipo === 'retirado') dados.redeRetirada += obj.valor_metragem;
-                if (obj.sub_tipo === 'cordoalha') dados.cordoalha += obj.valor_metragem;
-            }
-            if (obj.id_tipo === 'ceo_nova') { dados.ceoNova++; dados.redeInstalada += 20; }
-            if (obj.id_tipo === 'ceo_existente') dados.ceoExistente++;
-            if (obj.id_tipo === 'caixa_subterranea') dados.csCount++;
-            
-            if (obj.id_tipo === 'poste') {
-                if (obj.sub_tipo === 'XC') dados.postesXC++;
-                if (obj.sub_tipo === 'XM') dados.postesXM++;
-            }
-            if (obj.id_tipo === 'ctop') {
-                let r = obj.sub_tipo;
-                if(!dados.ctops[r]) dados.ctops[r] = 0;
-                dados.ctops[r]++;
-            }
-        });
-
-        // Atualização do Resumo Visual
-        var textoSelo = 
-            "RESUMO:\n" +
-            "Instalado: " + dados.redeInstalada + "m\n" +
-            "Retirado: " + dados.redeRetirada + "m\n" +
-            "Cordoalha: " + dados.cordoalha + "m\n" +
-            "Postes: " + (dados.postesXC + dados.postesXM) + "\n" +
-            "CX Novas: " + dados.ceoNova + " | CS: " + dados.csCount;
-
-        var boxResumo = new fabric.Rect({ width: 280, height: 110, fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, left: 800, top: 20 });
-        var txtResumo = new fabric.Text(textoSelo, { fontSize: 13, fill: '#333', fontFamily: 'Courier New', left: 810, top: 30 });
-        
-        var selo = new fabric.Group([boxResumo, txtResumo]);
-        canvas.add(selo);
-        canvas.renderAll();
-
-        setTimeout(function() {
-            var dataURL = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 });
-            var link = document.createElement('a');
-            link.download = 'FiberSketch_Croqui.png';
-            link.href = dataURL;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            gerarExcel(dados);
-        }, 500);
-    }
-
-    function gerarExcel(dados) {
-        let linhas = [
-            { Item: "CABO (INSTALAÇÃO + RESERVA)", Quantidade: dados.redeInstalada, Unidade: "Metros" },
-            { Item: "CABO (RETIRADA)", Quantidade: dados.redeRetirada, Unidade: "Metros" },
-            { Item: "CORDOALHA (MENSAGEIRO)", Quantidade: dados.cordoalha, Unidade: "Metros" },
-            { Item: "CAIXA DE EMENDA (NOVA)", Quantidade: dados.ceoNova, Unidade: "Peça" },
-            { Item: "CAIXA SUBTERRÂNEA (CS)", Quantidade: dados.csCount, Unidade: "Peça" },
-            { Item: "POSTE CONCRETO (XC)", Quantidade: dados.postesXC, Unidade: "Peça" },
-            { Item: "POSTE MADEIRA (XM)", Quantidade: dados.postesXM, Unidade: "Peça" }
-        ];
-
-        for (let [range, qtd] of Object.entries(dados.ctops)) {
-            linhas.push({ Item: "CTOP FAIXA " + range, Quantidade: qtd, Unidade: "Peça" });
-        }
-
-        var ws = XLSX.utils.json_to_sheet(linhas);
-        var wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Levantamento");
-        XLSX.writeFile(wb, "FiberSketch_Materiais.xlsx");
-        alert("Arquivos Gerados com Sucesso!");
-    }
-
-    atualizarBitolas();
-</script>
+<script src="js/app.js"></script>
 
 </body>
 </html>

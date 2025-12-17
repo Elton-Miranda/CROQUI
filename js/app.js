@@ -1,0 +1,300 @@
+var canvas = new fabric.Canvas('c');
+var line, arrowHead;
+var isDrawingLine = false;
+var modoLinha = null;
+
+// --- FUNÇÕES DE AJUDA ---
+function abrirAjuda() { document.getElementById('modalAjuda').style.display = 'flex'; }
+function fecharAjuda() { document.getElementById('modalAjuda').style.display = 'none'; }
+window.onclick = function(event) {
+    var modal = document.getElementById('modalAjuda');
+    if (event.target == modal) { modal.style.display = "none"; }
+}
+
+// --- DRAG & DROP ---
+function drag(ev, tipo) { ev.dataTransfer.setData("tipoObjeto", tipo); }
+var dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.querySelector('.canvas-wrapper').classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', function(e) { dropZone.querySelector('.canvas-wrapper').classList.remove('drag-over'); });
+
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.querySelector('.canvas-wrapper').classList.remove('drag-over');
+    var tipo = e.dataTransfer.getData("tipoObjeto");
+    var pointer = canvas.getPointer(e);
+    var x = pointer.x; var y = pointer.y;
+
+    if(tipo === 'posteXC') addPoste('XC', x, y);
+    if(tipo === 'posteXM') addPoste('XM', x, y);
+    if(tipo === 'subidaLateral') addSubidaLateral(x, y);
+    if(tipo === 'ceoExist') addCEO(true, x, y);
+    if(tipo === 'ceoNova') addCEO(false, x, y);
+    if(tipo === 'cs') addCS(x, y);
+    if(tipo.startsWith('ctop')) {
+        let parts = tipo.split('-');
+        addCTOP(parts[1], parts[2], x, y);
+    }
+});
+
+// --- FERRAMENTAS ---
+function resetFerramentas() {
+    modoLinha = null; isDrawingLine = false;
+    document.getElementById('btnInstall').classList.remove('ativo');
+    document.getElementById('btnRet').classList.remove('ativo');
+    document.getElementById('btnCord').classList.remove('ativo');
+    document.getElementById('btnArrow').classList.remove('ativo');
+    document.getElementById('btnPare').classList.remove('ativo');
+    canvas.selection = true; canvas.defaultCursor = 'default';
+    canvas.forEachObject(function(o) { o.selectable = true; });
+}
+
+function ativarModoLinha(modo) {
+    resetFerramentas(); modoLinha = modo;
+    if (modo) {
+        if(modo === 'instalar') document.getElementById('btnInstall').classList.add('ativo');
+        if(modo === 'retirar') document.getElementById('btnRet').classList.add('ativo');
+        if(modo === 'cordoalha') document.getElementById('btnCord').classList.add('ativo');
+        if(modo === 'seta') document.getElementById('btnArrow').classList.add('ativo');
+        canvas.selection = false; canvas.defaultCursor = 'crosshair';
+        canvas.forEachObject(function(o) { o.selectable = false; });
+    } else { document.getElementById('btnPare').classList.add('ativo'); }
+}
+
+var startX, startY;
+function getMagnetPoint(pointer) {
+    var threshold = 25; var snapped = { x: pointer.x, y: pointer.y };
+    canvas.getObjects().forEach(function(obj) {
+        if (['poste','ceo_existente','ceo_nova','caixa_subterranea'].includes(obj.id_tipo)) {
+            var dist = Math.sqrt(Math.pow(pointer.x - obj.left, 2) + Math.pow(pointer.y - obj.top, 2));
+            if (dist < threshold) { snapped.x = obj.left; snapped.y = obj.top; }
+        }
+    });
+    return snapped;
+}
+
+canvas.on('mouse:down', function(o){
+    if (!modoLinha) return;
+    isDrawingLine = true;
+    var pointer = canvas.getPointer(o.e);
+    if (modoLinha !== 'seta') {
+        var snapStart = getMagnetPoint(pointer);
+        startX = snapStart.x; startY = snapStart.y;
+    } else { startX = pointer.x; startY = pointer.y; }
+    
+    var points = [ startX, startY, startX, startY ];
+    var cor, largura, dash;
+    if (modoLinha === 'instalar') { cor = '#e74c3c'; largura = 4; dash = null; } 
+    else if (modoLinha === 'retirar') { cor = '#2ecc71'; largura = 4; dash = null; }
+    else if (modoLinha === 'cordoalha') { cor = '#3498db'; largura = 2; dash = [10, 5]; }
+    else if (modoLinha === 'seta') { cor = '#c0392b'; largura = 3; dash = null; }
+    line = new fabric.Line(points, { strokeWidth: largura, stroke: cor, strokeDashArray: dash, originX: 'center', originY: 'center', selectable: false });
+    canvas.add(line);
+
+    if (modoLinha === 'seta') {
+        arrowHead = new fabric.Triangle({ width: 15, height: 15, fill: cor, left: startX, top: startY, originX: 'center', originY: 'center', selectable: false, angle: 90 });
+        canvas.add(arrowHead);
+    }
+});
+
+canvas.on('mouse:move', function(o){
+    if (!isDrawingLine) return;
+    var pointer = canvas.getPointer(o.e);
+    var targetX = pointer.x; var targetY = pointer.y;
+    if (modoLinha !== 'seta') {
+        var magnet = getMagnetPoint(pointer);
+        targetX = magnet.x; targetY = magnet.y;
+        if (targetX === pointer.x && targetY === pointer.y) {
+            if (Math.abs(targetY - startY) < 20) targetY = startY; 
+            else if (Math.abs(targetX - startX) < 20) targetX = startX;
+        }
+    }
+    line.set({ x2: targetX, y2: targetY });
+    if (modoLinha === 'seta' && arrowHead) {
+        arrowHead.set({ left: targetX, top: targetY });
+        var dx = targetX - startX; var dy = targetY - startY;
+        var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        arrowHead.set({ angle: angle + 90 });
+    }
+    canvas.renderAll();
+});
+
+canvas.on('mouse:up', function(o){ 
+    isDrawingLine = false; 
+    if(line) {
+        line.setCoords();
+        if (modoLinha === 'seta' && arrowHead) {
+            var group = new fabric.Group([line, arrowHead]);
+            group.set('id_tipo', 'seta_desenho'); 
+            canvas.remove(line); canvas.remove(arrowHead); canvas.add(group);
+            resetFerramentas(); 
+        }
+    }
+});
+
+// --- OBJETOS ---
+function addObservacao() {
+    resetFerramentas();
+    var textObj = new fabric.Textbox("12 Fusões\n2 Conectores", { 
+        width: 250, fontSize: 14, fill: '#856404', backgroundColor: '#fff3cd', 
+        fontFamily: 'Roboto', textAlign: 'left', originX: 'center', originY: 'center', 
+        splitByGrapheme: true, editable: true, left: canvas.width/2, top: canvas.height/2, 
+        padding: 10, borderColor: '#e0a800', borderWidth: 1
+    });
+    textObj.set('id_tipo', 'observacao_texto');
+    canvas.add(textObj); canvas.setActiveObject(textObj);
+    if(!window.alertadoObs) { alert("DICA DE MATERIAIS:\nDigite 'Quantidade Item' (Ex: 12 Fusões) e o sistema contará no Excel."); window.alertadoObs = true; }
+}
+
+function addPoste(tipo, x, y) {
+    var circle = new fabric.Circle({ radius: 8, fill: '#34495e', left: 0, top: 0, originX: 'center', originY: 'center' });
+    var text = new fabric.Text(tipo, { fontSize: 20, fontWeight: 'bold', left: 10, top: -20, fontFamily: 'Roboto' });
+    var group = new fabric.Group([ circle, text ], { left: x, top: y, originX: 'center', originY: 'center' });
+    group.set('id_tipo', 'poste'); group.set('sub_tipo', tipo); canvas.add(group);
+}
+function addCEO(existente, x, y) {
+    if (existente) {
+        var circle = new fabric.Circle({ radius: 15, fill: '#2c3e50', stroke: '#2c3e50', originX: 'center', originY: 'center' });
+        var group = new fabric.Group([circle], { left: x, top: y, originX: 'center', originY: 'center' });
+        group.set('id_tipo', 'ceo_existente'); canvas.add(group);
+    } else {
+        var circle = new fabric.Circle({ radius: 15, fill: 'white', stroke: '#2c3e50', strokeWidth: 3, originX: 'center', originY: 'center' });
+        var textVt = new fabric.Text("VT: 20m", { fontSize: 14, fill: '#c0392b', fontWeight: 'bold', left: 20, top: -10 });
+        var group = new fabric.Group([circle, textVt], { left: x, top: y, originX: 'center', originY: 'center' });
+        group.set('id_tipo', 'ceo_nova'); canvas.add(group);
+    }
+}
+function addCS(x, y) {
+    let numero = prompt("Número da CS (Digite 00 para S/N):", "");
+    if (numero !== null) {
+        let label = (numero === "0" || numero === "00" || numero === "000") ? "CS S/N" : "CS " + numero.substring(0, 3);
+        var rect = new fabric.Rect({ width: 60, height: 35, fill: '#bdc3c7', stroke: '#34495e', strokeWidth: 2, rx: 2, ry: 2, originX: 'center', originY: 'center' });
+        var text = new fabric.Text(label, { fontSize: 14, fill: '#2c3e50', fontWeight: 'bold', fontFamily: 'Roboto', originX: 'center', originY: 'center' });
+        var group = new fabric.Group([rect, text], { left: x, top: y, originX: 'center', originY: 'center' });
+        group.set('id_tipo', 'caixa_subterranea'); canvas.add(group);
+    }
+}
+function addSubidaLateral(x, y) {
+    var polyline = new fabric.Polyline([ {x: 0, y: 0}, {x: 20, y: 0}, {x: 30, y: -30}, {x: 40, y: 30}, {x: 50, y: 0}, {x: 70, y: 0} ], { fill: 'transparent', stroke: 'red', strokeWidth: 3, left: x, top: y, originX: 'center', originY: 'center' });
+    canvas.add(polyline);
+}
+function addCTOP(cor, range, x, y) {
+    var hexColor = cor.startsWith('#') ? cor : '#' + cor;
+    var rect = new fabric.Rect({ width: 35, height: 35, fill: hexColor, stroke: '#333', strokeWidth: 1, originX: 'center', originY: 'center' });
+    var text = new fabric.Text(range, { fontSize: 12, backgroundColor: 'rgba(255,255,255,0.9)', top: 20, fontFamily: 'Roboto', originX: 'center' });
+    var group = new fabric.Group([rect, text], { left: x, top: y, originX: 'center', originY: 'center' });
+    group.set('id_tipo', 'ctop'); group.set('sub_tipo', range); canvas.add(group);
+}
+function addMedida(tipo) {
+    resetFerramentas();
+    let label = "", corFundo = "";
+    if (tipo === 'instalado') { label = "Rede Nova"; corFundo = "#FFD700"; }
+    if (tipo === 'retirado') { label = "Rede Ret."; corFundo = "#a9dfbf"; }
+    if (tipo === 'cordoalha') { label = "Cordoalha"; corFundo = "#aed6f1"; }
+    let metros = prompt("Metragem " + label + " (m):", "40");
+    if (metros) {
+        var text = new fabric.Text(label + ": " + metros + "m", { fontSize: 16, fontWeight: 'bold', backgroundColor: corFundo, left: canvas.width/2, top: canvas.height/2, padding: 5, originX: 'center', originY: 'center' });
+        text.set('id_tipo', 'medida'); text.set('sub_tipo', tipo); text.set('valor_metragem', parseFloat(metros)); canvas.add(text);
+    }
+}
+function addNomeRua() {
+    resetFerramentas();
+    let nomeRua = prompt("Nome da Rua / Nº:", "Rua Exemplo, 123");
+    if (nomeRua) {
+        var text = new fabric.Text(nomeRua, { fontSize: 24, fontFamily: 'Roboto', fill: '#2980b9', fontWeight: 'bold', left: canvas.width/2, top: 50, originX: 'center' });
+        canvas.add(text);
+    }
+}
+function addEtiquetaCabo() {
+    resetFerramentas();
+    var txt = document.getElementById('tipoCabo').value + " " + document.getElementById('bitolaCabo').value;
+    var text = new fabric.Text(txt, { fontSize: 14, backgroundColor: '#fff3cd', left: canvas.width/2, top: canvas.height/2, padding: 6, stroke: '#333', strokeWidth: 0.2, originX: 'center', originY: 'center' });
+    canvas.add(text);
+}
+function atualizarBitolas() {
+    var tipo = document.getElementById("tipoCabo").value;
+    var selectBitola = document.getElementById("bitolaCabo");
+    selectBitola.innerHTML = "";
+    var opcoes = (tipo === "DROP") ? ["01", "04"] : ["12", "24", "36", "48", "72", "144"];
+    opcoes.forEach(v => { var opt = document.createElement("option"); opt.value = v; opt.innerHTML = v + " FO"; selectBitola.appendChild(opt); });
+}
+function deleteSelected() { var activeObjects = canvas.getActiveObjects(); if (activeObjects.length) { canvas.discardActiveObject(); activeObjects.forEach(o => canvas.remove(o)); } }
+document.addEventListener('keydown', function(e) { if(e.key === "Delete") { deleteSelected(); } });
+
+// --- FINALIZAÇÃO ---
+function finalizarTudo() {
+    resetFerramentas();
+    let dados = { 
+        redeInstalada: 0, redeRetirada: 0, cordoalha: 0, postesXC: 0, postesXM: 0, ceoNova: 0, ceoExistente: 0, csCount: 0, ctops: {}, 
+        observacoes: [], itensExtras: [] 
+    };
+    
+    canvas.getObjects().forEach(function(obj) {
+        if (obj.id_tipo === 'medida') {
+            if (obj.sub_tipo === 'instalado') dados.redeInstalada += obj.valor_metragem;
+            if (obj.sub_tipo === 'retirado') dados.redeRetirada += obj.valor_metragem;
+            if (obj.sub_tipo === 'cordoalha') dados.cordoalha += obj.valor_metragem;
+        }
+        if (obj.id_tipo === 'ceo_nova') { dados.ceoNova++; dados.redeInstalada += 20; }
+        if (obj.id_tipo === 'ceo_existente') dados.ceoExistente++;
+        if (obj.id_tipo === 'caixa_subterranea') dados.csCount++;
+        if (obj.id_tipo === 'poste') {
+            if (obj.sub_tipo === 'XC') dados.postesXC++;
+            if (obj.sub_tipo === 'XM') dados.postesXM++;
+        }
+        if (obj.id_tipo === 'ctop') {
+            let r = obj.sub_tipo; if(!dados.ctops[r]) dados.ctops[r] = 0; dados.ctops[r]++;
+        }
+        if (obj.id_tipo === 'observacao_texto') {
+            let linhas = obj.text.split('\n');
+            linhas.forEach(linha => {
+                linha = linha.trim();
+                if(!linha) return;
+                let match = linha.match(/^(\d+)[\sxX]+(.*)/);
+                if (match) { dados.itensExtras.push({ qtd: match[1], item: match[2] }); } else { dados.observacoes.push(linha); }
+            });
+        }
+    });
+
+    var textoSelo = "RESUMO CROQUI:\nInstalado: " + dados.redeInstalada + "m\nRetirado: " + dados.redeRetirada + "m\nPostes: " + (dados.postesXC + dados.postesXM) + "\nCX Novas: " + dados.ceoNova;
+    var boxResumo = new fabric.Rect({ width: 280, height: 110, fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, left: 800, top: 20 });
+    var txtResumo = new fabric.Text(textoSelo, { fontSize: 13, fill: '#333', fontFamily: 'Courier New', left: 810, top: 30 });
+    var selo = new fabric.Group([boxResumo, txtResumo]);
+    canvas.add(selo);
+    canvas.renderAll();
+
+    setTimeout(function() {
+        var dataURL = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 });
+        var link = document.createElement('a'); link.download = 'CROQUI_Croqui.png'; link.href = dataURL; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        gerarExcel(dados);
+    }, 500);
+}
+
+function gerarExcel(dados) {
+    let linhas = [
+        { Item: "CABO (INSTALAÇÃO + RESERVA)", Quantidade: dados.redeInstalada, Unidade: "Metros" },
+        { Item: "CABO (RETIRADA)", Quantidade: dados.redeRetirada, Unidade: "Metros" },
+        { Item: "CORDOALHA", Quantidade: dados.cordoalha, Unidade: "Metros" },
+        { Item: "CAIXA DE EMENDA (NOVA)", Quantidade: dados.ceoNova, Unidade: "Peça" },
+        { Item: "CAIXA SUBTERRÂNEA (CS)", Quantidade: dados.csCount, Unidade: "Peça" },
+        { Item: "POSTE CONCRETO (XC)", Quantidade: dados.postesXC, Unidade: "Peça" },
+        { Item: "POSTE MADEIRA (XM)", Quantidade: dados.postesXM, Unidade: "Peça" }
+    ];
+    for (let [range, qtd] of Object.entries(dados.ctops)) { linhas.push({ Item: "CTOP FAIXA " + range, Quantidade: qtd, Unidade: "Peça" }); }
+    if (dados.itensExtras.length > 0) {
+        linhas.push({ Item: "--- MATERIAIS EXTRAS (NOTAS) ---", Quantidade: "", Unidade: "" });
+        dados.itensExtras.forEach(extra => { linhas.push({ Item: extra.item, Quantidade: extra.qtd, Unidade: "Und" }); });
+    }
+    if (dados.observacoes.length > 0) {
+        linhas.push({ Item: "--- OBSERVAÇÕES GERAIS ---", Quantidade: "", Unidade: "" });
+        dados.observacoes.forEach(obs => linhas.push({ Item: obs, Quantidade: "-", Unidade: "Nota" }));
+    }
+    var ws = XLSX.utils.json_to_sheet(linhas);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Levantamento");
+    XLSX.writeFile(wb, "CROQUI_Materiais.xlsx");
+    alert("Arquivos do CROQUI Gerados!");
+}
+
+atualizarBitolas();
+// Abre ajuda automaticamente na primeira visita (opcional)
+// setTimeout(abrirAjuda, 1000);
