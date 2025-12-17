@@ -14,32 +14,67 @@
 <body>
 
 <div id="modalAjuda" class="modal">
-    <div class="modal-content">
+    <div class="modal-content manual-content">
         <span class="close" onclick="fecharModais()">&times;</span>
-        <h2 class="modal-title">Manual de Operação</h2>
-        <div class="manual-grid">
-            <div class="manual-col">
-                <h3>🛠️ Desenho</h3>
-                <p>Use as ferramentas de arrastar e soltar para criar o cenário. Use os cabos com magnetismo para conectar postes.</p>
+        <h2 class="manual-title">📖 Manual do Usuário</h2>
+        
+        <div class="manual-scroll">
+            
+            <div class="manual-section">
+                <h3>1. Montando o Cenário (Arrastar)</h3>
+                <p>Para colocar Postes, Caixas ou CTOPs:</p>
+                <ul>
+                    <li>Clique no botão do item na barra lateral esquerda.</li>
+                    <li>Segure o clique e <b>arraste</b> até a posição desejada na folha branca.</li>
+                    <li>Solte para fixar.</li>
+                </ul>
             </div>
-            <div class="manual-col">
-                <h3>💾 Salvamento Padrão</h3>
-                <p>O sistema agora formata automaticamente:<br>
-                - Digite <b>1</b>, ele salva <b>01</b>.<br>
-                - O nome do arquivo será: <b>ATCABO-F#PRIM</b>.<br>
-                - Seus dados (RE/Nome) sairão no Excel.</p>
+
+            <div class="manual-section">
+                <h3>2. Passando Cabos (Ímã)</h3>
+                <p>O sistema ajuda a desenhar reto:</p>
+                <ul>
+                    <li>Escolha <b>Instalar</b> (Vermelho), <b>Retirar</b> (Verde) ou <b>Cordoalha</b> (Azul).</li>
+                    <li>Clique no meio de um poste (o mouse é atraído para o centro).</li>
+                    <li>Arraste até o próximo poste e solte.</li>
+                </ul>
+                <p class="nota-dica">💡 <b>Dica:</b> Para parar de desenhar ou cancelar, clique no botão cinza <b>✋ Parar (ESC)</b>.</p>
+            </div>
+
+            <div class="manual-section">
+                <h3>3. O Segredo das Notas (Excel)</h3>
+                <p>O botão <b>📝 Nota</b> cria um post-it inteligente:</p>
+                <ul>
+                    <li>Se digitar só texto (ex: <i>"Poste quebrado"</i>), sai como observação.</li>
+                    <li><b>IMPORTANTE:</b> Se digitar Quantidade + Nome (ex: <code>12 Fusões</code> ou <code>2 Alças</code>), o sistema conta isso na planilha de materiais!</li>
+                </ul>
+            </div>
+
+            <div class="manual-section">
+                <h3>4. Finalizando</h3>
+                <p>Ao clicar em <b>💾 SALVAR TUDO</b>, preencha:</p>
+                <ul>
+                    <li><b>Seus Dados:</b> Nome e RE.</li>
+                    <li><b>O Projeto:</b> AT (ex: SJ), Cabo (ex: 5) e Primária (ex: 1).</li>
+                </ul>
+                <p>O sistema formata os zeros (05, 01) e gera a imagem e o Excel automaticamente.</p>
+            </div>
+
+            <div class="manual-footer">
+                <p>⌨️ <b>Atalhos:</b> <code>DELETE</code> apaga item | <code>ESC</code> cancela ferramenta.</p>
             </div>
         </div>
-        <button class="btn-salvar" style="width: 100%; margin-top: 15px;" onclick="fecharModais()">ENTENDI</button>
+        
+        <button class="btn-salvar" style="width: 100%; margin-top: 15px;" onclick="fecharModais()">LI E ENTENDI, VAMOS LÁ!</button>
     </div>
 </div>
 
 <div id="modalSalvar" class="modal">
     <div class="modal-content" style="max-width: 400px;">
         <span class="close" onclick="fecharModais()">&times;</span>
-        <h2 class="modal-title">Finalizar Croqui</h2>
+        <h2 class="modal-title" style="border-bottom: 2px solid #660099; color: #660099;">Finalizar Croqui</h2>
         
-        <div style="background: #f0f4f8; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+        <div style="background: #f0f4f8; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #d9e2ec;">
             <label class="form-label">Nome</label>
             <input type="text" id="inputNome" placeholder="Seu Nome">
             

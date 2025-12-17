@@ -6,40 +6,32 @@ var modoLinha = null;
 // --- GESTÃO DE MODAIS ---
 function abrirAjuda() { document.getElementById('modalAjuda').style.display = 'flex'; }
 function abrirModalSalvar() { document.getElementById('modalSalvar').style.display = 'flex'; }
-
 function fecharModais() { 
     document.getElementById('modalAjuda').style.display = 'none'; 
     document.getElementById('modalSalvar').style.display = 'none'; 
 }
-
 window.onclick = function(event) {
     if (event.target == document.getElementById('modalAjuda')) fecharModais();
     if (event.target == document.getElementById('modalSalvar')) fecharModais();
 }
 
-// --- DRAG & DROP (PRINCIPAL) ---
+// --- DRAG & DROP ---
 function drag(ev, tipo) { ev.dataTransfer.setData("tipoObjeto", tipo); }
 var dropZone = document.getElementById('dropZone');
 dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.querySelector('.canvas-wrapper').classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', function(e) { dropZone.querySelector('.canvas-wrapper').classList.remove('drag-over'); });
-
 dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
     dropZone.querySelector('.canvas-wrapper').classList.remove('drag-over');
     var tipo = e.dataTransfer.getData("tipoObjeto");
     var pointer = canvas.getPointer(e);
-    
-    // Criação dos Objetos ao soltar
     if(tipo === 'posteXC') addPoste('XC', pointer.x, pointer.y);
     if(tipo === 'posteXM') addPoste('XM', pointer.x, pointer.y);
     if(tipo === 'subidaLateral') addSubidaLateral(pointer.x, pointer.y);
     if(tipo === 'ceoExist') addCEO(true, pointer.x, pointer.y);
     if(tipo === 'ceoNova') addCEO(false, pointer.x, pointer.y);
     if(tipo === 'cs') addCS(pointer.x, pointer.y);
-    if(tipo.startsWith('ctop')) {
-        let parts = tipo.split('-');
-        addCTOP(parts[1], parts[2], pointer.x, pointer.y);
-    }
+    if(tipo.startsWith('ctop')) { let parts = tipo.split('-'); addCTOP(parts[1], parts[2], pointer.x, pointer.y); }
 });
 
 // --- FERRAMENTAS ---
@@ -53,7 +45,6 @@ function resetFerramentas() {
     canvas.selection = true; canvas.defaultCursor = 'default';
     canvas.forEachObject(function(o) { o.selectable = true; });
 }
-
 function ativarModoLinha(modo) {
     resetFerramentas(); modoLinha = modo;
     if (modo) {
@@ -65,7 +56,6 @@ function ativarModoLinha(modo) {
         canvas.forEachObject(function(o) { o.selectable = false; });
     } else { document.getElementById('btnPare').classList.add('ativo'); }
 }
-
 var startX, startY;
 function getMagnetPoint(pointer) {
     var threshold = 25; var snapped = { x: pointer.x, y: pointer.y };
@@ -77,19 +67,13 @@ function getMagnetPoint(pointer) {
     });
     return snapped;
 }
-
-// --- EVENTOS MOUSE ---
 canvas.on('mouse:down', function(o){
     if (!modoLinha) return;
     isDrawingLine = true;
     var pointer = canvas.getPointer(o.e);
-    
-    // Magnetismo (Exceto Seta)
     if (modoLinha !== 'seta') {
-        var snapStart = getMagnetPoint(pointer);
-        startX = snapStart.x; startY = snapStart.y;
+        var snapStart = getMagnetPoint(pointer); startX = snapStart.x; startY = snapStart.y;
     } else { startX = pointer.x; startY = pointer.y; }
-    
     var points = [ startX, startY, startX, startY ];
     var cor, largura, dash;
     if (modoLinha === 'instalar') { cor = '#e74c3c'; largura = 4; dash = null; } 
@@ -98,23 +82,19 @@ canvas.on('mouse:down', function(o){
     else if (modoLinha === 'seta') { cor = '#c0392b'; largura = 3; dash = null; }
     line = new fabric.Line(points, { strokeWidth: largura, stroke: cor, strokeDashArray: dash, originX: 'center', originY: 'center', selectable: false });
     canvas.add(line);
-
     if (modoLinha === 'seta') {
         arrowHead = new fabric.Triangle({ width: 15, height: 15, fill: cor, left: startX, top: startY, originX: 'center', originY: 'center', selectable: false, angle: 90 });
         canvas.add(arrowHead);
     }
 });
-
 canvas.on('mouse:move', function(o){
     if (!isDrawingLine) return;
     var pointer = canvas.getPointer(o.e);
     var targetX = pointer.x; var targetY = pointer.y;
     if (modoLinha !== 'seta') {
-        var magnet = getMagnetPoint(pointer);
-        targetX = magnet.x; targetY = magnet.y;
+        var magnet = getMagnetPoint(pointer); targetX = magnet.x; targetY = magnet.y;
         if (targetX === pointer.x && targetY === pointer.y) {
-            if (Math.abs(targetY - startY) < 20) targetY = startY; 
-            else if (Math.abs(targetX - startX) < 20) targetX = startX;
+            if (Math.abs(targetY - startY) < 20) targetY = startY; else if (Math.abs(targetX - startX) < 20) targetX = startX;
         }
     }
     line.set({ x2: targetX, y2: targetY });
@@ -126,7 +106,6 @@ canvas.on('mouse:move', function(o){
     }
     canvas.renderAll();
 });
-
 canvas.on('mouse:up', function(o){ 
     isDrawingLine = false; 
     if(line) {
@@ -134,25 +113,20 @@ canvas.on('mouse:up', function(o){
         if (modoLinha === 'seta' && arrowHead) {
             var group = new fabric.Group([line, arrowHead]);
             group.set('id_tipo', 'seta_desenho'); 
-            canvas.remove(line); canvas.remove(arrowHead); canvas.add(group);
-            resetFerramentas(); 
+            canvas.remove(line); canvas.remove(arrowHead); canvas.add(group); resetFerramentas(); 
         }
     }
 });
 
-// --- CRIAÇÃO DE OBJETOS ---
+// --- OBJETOS ---
 function addObservacao() {
     resetFerramentas();
     var textObj = new fabric.Textbox("12 Fusões\n2 Conectores", { 
-        width: 250, fontSize: 14, fill: '#856404', backgroundColor: '#fff3cd', 
-        fontFamily: 'Roboto', textAlign: 'left', originX: 'center', originY: 'center', 
-        splitByGrapheme: true, editable: true, left: canvas.width/2, top: canvas.height/2, 
-        padding: 10, borderColor: '#e0a800', borderWidth: 1
+        width: 250, fontSize: 14, fill: '#856404', backgroundColor: '#fff3cd', fontFamily: 'Roboto', textAlign: 'left', originX: 'center', originY: 'center', 
+        splitByGrapheme: true, editable: true, left: canvas.width/2, top: canvas.height/2, padding: 10, borderColor: '#e0a800', borderWidth: 1
     });
-    textObj.set('id_tipo', 'observacao_texto');
-    canvas.add(textObj); canvas.setActiveObject(textObj);
+    textObj.set('id_tipo', 'observacao_texto'); canvas.add(textObj); canvas.setActiveObject(textObj);
 }
-
 function addPoste(tipo, x, y) {
     var circle = new fabric.Circle({ radius: 8, fill: '#34495e', left: 0, top: 0, originX: 'center', originY: 'center' });
     var text = new fabric.Text(tipo, { fontSize: 20, fontWeight: 'bold', left: 10, top: -20, fontFamily: 'Roboto' });
@@ -228,10 +202,8 @@ function atualizarBitolas() {
 function deleteSelected() { var activeObjects = canvas.getActiveObjects(); if (activeObjects.length) { canvas.discardActiveObject(); activeObjects.forEach(o => canvas.remove(o)); } }
 document.addEventListener('keydown', function(e) { if(e.key === "Delete") { deleteSelected(); } if(e.key === "Escape") { resetFerramentas(); } });
 
-// --- LÓGICA DE SALVAMENTO COM IDENTIFICAÇÃO PADRÃO ---
-
+// --- LÓGICA DE SALVAMENTO ---
 function confirmarSalvar() {
-    // 1. Coleta de Dados
     let nome = document.getElementById('inputNome').value;
     let sobrenome = document.getElementById('inputSobrenome').value;
     let re = document.getElementById('inputRE').value;
@@ -244,22 +216,15 @@ function confirmarSalvar() {
         return;
     }
 
-    // 2. Padronização (Zeros à esquerda)
-    let caboPad = cabo.toString().padStart(2, '0');      // 5 -> 05
-    let primPad = primaria.toString().padStart(2, '0');  // 1 -> 01
-    let idProjeto = `${at}${caboPad}-F#${primPad}`;      // SJ05-F#01
-    
-    // Data Automática
+    let caboPad = cabo.toString().padStart(2, '0');      
+    let primPad = primaria.toString().padStart(2, '0');  
+    let idProjeto = `${at}${caboPad}-F#${primPad}`;      
     let hoje = new Date().toLocaleDateString('pt-BR');
 
     fecharModais();
     resetFerramentas();
 
-    // 3. Cálculos
-    let dados = { 
-        redeInstalada: 0, redeRetirada: 0, cordoalha: 0, postesXC: 0, postesXM: 0, ceoNova: 0, ceoExistente: 0, csCount: 0, ctops: {}, 
-        observacoes: [], itensExtras: [] 
-    };
+    let dados = { redeInstalada: 0, redeRetirada: 0, cordoalha: 0, postesXC: 0, postesXM: 0, ceoNova: 0, ceoExistente: 0, csCount: 0, ctops: {}, observacoes: [], itensExtras: [] };
     
     canvas.getObjects().forEach(function(obj) {
         if (obj.id_tipo === 'medida') {
@@ -288,35 +253,15 @@ function confirmarSalvar() {
         }
     });
 
-    // 4. Cabeçalho (Topo) - Com Informações Completas (ATUALIZADO)
-    // Monta o texto: "CROQUI SJ05-F#01  |  TÉC: JOÃO SILVA  |  DATA: 17/12/2025"
+    // Cabeçalho Roxo Topo
     var textoTopo = `CROQUI ${idProjeto}  |  TÉC: ${nome.toUpperCase()} ${sobrenome.toUpperCase()}  |  DATA: ${hoje}`;
+    var boxHeader = new fabric.Rect({ width: 1100, height: 50, fill: '#3a0057', left: 0, top: 0, selectable: false });
+    var txtHeader = new fabric.Text(textoTopo, { fontSize: 18, fill: 'white', fontWeight: 'bold', fontFamily: 'Roboto', left: 20, top: 15, selectable: false });
+    canvas.add(boxHeader); canvas.add(txtHeader);
 
-    var boxHeader = new fabric.Rect({ 
-        width: 1100, 
-        height: 50, // Altura confortável
-        fill: '#3a0057', 
-        left: 0, 
-        top: 0, 
-        selectable: false 
-    });
-
-    var txtHeader = new fabric.Text(textoTopo, { 
-        fontSize: 18, // Tamanho ideal para leitura
-        fill: 'white', 
-        fontWeight: 'bold', 
-        fontFamily: 'Roboto', 
-        left: 20, 
-        top: 15, // Centralizado verticalmente
-        selectable: false 
-    });
-
-    canvas.add(boxHeader); 
-    canvas.add(txtHeader);
-
-    // 5. Carimbo Completo (Rodapé)
+    // Carimbo Rodapé
     var textoSelo = 
-        `RESUMO DE MATERIAIS - ${idProjeto}\n` + // Adicionei o ID no título do carimbo também
+        `RESUMO DE MATERIAIS - ${idProjeto}\n` +
         `--------------------------\n` +
         `Instalado: ${dados.redeInstalada}m\n` +
         `Retirado:  ${dados.redeRetirada}m\n` +
@@ -324,20 +269,12 @@ function confirmarSalvar() {
         `Postes:    ${dados.postesXC + dados.postesXM}\n` +
         `CX Novas:  ${dados.ceoNova}`;
 
-    var boxResumo = new fabric.Rect({ 
-        width: 300, height: 160, 
-        fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, 
-        left: canvas.width - 320, top: canvas.height - 180, selectable: false 
-    });
-    var txtResumo = new fabric.Text(textoSelo, { 
-        fontSize: 14, fill: '#333', fontFamily: 'Courier New', 
-        left: canvas.width - 310, top: canvas.height - 170, selectable: false 
-    });
+    var boxResumo = new fabric.Rect({ width: 300, height: 160, fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, left: canvas.width - 320, top: canvas.height - 180, selectable: false });
+    var txtResumo = new fabric.Text(textoSelo, { fontSize: 14, fill: '#333', fontFamily: 'Courier New', left: canvas.width - 310, top: canvas.height - 170, selectable: false });
     
     canvas.add(boxResumo); canvas.add(txtResumo);
     canvas.renderAll();
 
-    // 6. Gerar Arquivos
     let userInfo = { nome, sobrenome, re, at, cabo: caboPad, primaria: primPad, idProjeto, hoje };
     
     setTimeout(function() {
@@ -352,41 +289,36 @@ function confirmarSalvar() {
 }
 
 function gerarExcel(dados, info) {
-    // Array com Cabeçalho Rico
     let linhas = [
         { Item: "PROJETO", Quantidade: info.idProjeto, Unidade: "" },
         { Item: "TÉCNICO", Quantidade: info.nome + " " + info.sobrenome, Unidade: "" },
         { Item: "REGISTRO (RE)", Quantidade: info.re, Unidade: "" },
         { Item: "DATA", Quantidade: info.hoje, Unidade: "" },
-        { Item: "", Quantidade: "", Unidade: "" }, // Linha em branco
+        { Item: "", Quantidade: "", Unidade: "" },
         { Item: "--- MATERIAIS ---", Quantidade: "", Unidade: "" },
         { Item: "CABO (INSTALAÇÃO)", Quantidade: dados.redeInstalada, Unidade: "Metros" },
         { Item: "CABO (RETIRADA)", Quantidade: dados.redeRetirada, Unidade: "Metros" },
         { Item: "CORDOALHA", Quantidade: dados.cordoalha, Unidade: "Metros" },
-        { Item: "CX EMENDA NOVA", Quantidade: dados.ceoNova, Unidade: "Peça" },
-        { Item: "CX SUBTERRÂNEA", Quantidade: dados.csCount, Unidade: "Peça" },
-        { Item: "POSTE CONCRETO", Quantidade: dados.postesXC, Unidade: "Peça" },
-        { Item: "POSTE MADEIRA", Quantidade: dados.postesXM, Unidade: "Peça" }
+        { Item: "CX EMENDA NOVA", Quantidade: dados.ceoNova, Unidade: "UN" },
+        { Item: "CX SUBTERRÂNEA", Quantidade: dados.csCount, Unidade: "UN" },
+        { Item: "POSTE CONCRETO", Quantidade: dados.postesXC, Unidade: "UN" },
+        { Item: "POSTE MADEIRA", Quantidade: dados.postesXM, Unidade: "UN" }
     ];
-    
-    for (let [range, qtd] of Object.entries(dados.ctops)) { linhas.push({ Item: "CTOP " + range, Quantidade: qtd, Unidade: "Peça" }); }
-    
+    for (let [range, qtd] of Object.entries(dados.ctops)) { linhas.push({ Item: "CTOP " + range, Quantidade: qtd, Unidade: "UN" }); }
     if (dados.itensExtras.length > 0) {
         linhas.push({ Item: "", Quantidade: "", Unidade: "" });
         linhas.push({ Item: "--- EXTRAS (NOTAS) ---", Quantidade: "", Unidade: "" });
         dados.itensExtras.forEach(extra => { linhas.push({ Item: extra.item, Quantidade: extra.qtd, Unidade: "Und" }); });
     }
-    
+    if (dados.observacoes.length > 0) {
+        linhas.push({ Item: "--- OBSERVAÇÕES GERAIS ---", Quantidade: "", Unidade: "" });
+        dados.observacoes.forEach(obs => linhas.push({ Item: obs, Quantidade: "-", Unidade: "Nota" }));
+    }
     var ws = XLSX.utils.json_to_sheet(linhas);
-    
-    // Ajuste de largura das colunas
-    var wscols = [{wch:30}, {wch:20}, {wch:10}];
-    ws['!cols'] = wscols;
-
+    var wscols = [{wch:30}, {wch:20}, {wch:10}]; ws['!cols'] = wscols;
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Levantamento");
     XLSX.writeFile(wb, info.idProjeto + ".xlsx");
-    
     alert("Croqui salvo com sucesso: " + info.idProjeto);
 }
 
