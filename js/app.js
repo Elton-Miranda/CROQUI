@@ -7,11 +7,10 @@ var modoLinha = null;
 function abrirAjuda() { document.getElementById('modalAjuda').style.display = 'flex'; }
 function fecharAjuda() { document.getElementById('modalAjuda').style.display = 'none'; }
 window.onclick = function(event) {
-    var modal = document.getElementById('modalAjuda');
-    if (event.target == modal) { modal.style.display = "none"; }
+    if (event.target == document.getElementById('modalAjuda')) fecharAjuda();
 }
 
-// --- DRAG & DROP ---
+// --- DRAG & DROP (PRINCIPAL) ---
 function drag(ev, tipo) { ev.dataTransfer.setData("tipoObjeto", tipo); }
 var dropZone = document.getElementById('dropZone');
 dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.querySelector('.canvas-wrapper').classList.add('drag-over'); });
@@ -22,17 +21,17 @@ dropZone.addEventListener('drop', function(e) {
     dropZone.querySelector('.canvas-wrapper').classList.remove('drag-over');
     var tipo = e.dataTransfer.getData("tipoObjeto");
     var pointer = canvas.getPointer(e);
-    var x = pointer.x; var y = pointer.y;
-
-    if(tipo === 'posteXC') addPoste('XC', x, y);
-    if(tipo === 'posteXM') addPoste('XM', x, y);
-    if(tipo === 'subidaLateral') addSubidaLateral(x, y);
-    if(tipo === 'ceoExist') addCEO(true, x, y);
-    if(tipo === 'ceoNova') addCEO(false, x, y);
-    if(tipo === 'cs') addCS(x, y);
+    
+    // Criação dos Objetos ao soltar
+    if(tipo === 'posteXC') addPoste('XC', pointer.x, pointer.y);
+    if(tipo === 'posteXM') addPoste('XM', pointer.x, pointer.y);
+    if(tipo === 'subidaLateral') addSubidaLateral(pointer.x, pointer.y);
+    if(tipo === 'ceoExist') addCEO(true, pointer.x, pointer.y);
+    if(tipo === 'ceoNova') addCEO(false, pointer.x, pointer.y);
+    if(tipo === 'cs') addCS(pointer.x, pointer.y);
     if(tipo.startsWith('ctop')) {
         let parts = tipo.split('-');
-        addCTOP(parts[1], parts[2], x, y);
+        addCTOP(parts[1], parts[2], pointer.x, pointer.y);
     }
 });
 
@@ -72,10 +71,13 @@ function getMagnetPoint(pointer) {
     return snapped;
 }
 
+// --- EVENTOS MOUSE ---
 canvas.on('mouse:down', function(o){
     if (!modoLinha) return;
     isDrawingLine = true;
     var pointer = canvas.getPointer(o.e);
+    
+    // Magnetismo (Exceto Seta)
     if (modoLinha !== 'seta') {
         var snapStart = getMagnetPoint(pointer);
         startX = snapStart.x; startY = snapStart.y;
@@ -131,7 +133,7 @@ canvas.on('mouse:up', function(o){
     }
 });
 
-// --- OBJETOS ---
+// --- CRIAÇÃO DE OBJETOS ---
 function addObservacao() {
     resetFerramentas();
     var textObj = new fabric.Textbox("12 Fusões\n2 Conectores", { 
@@ -142,7 +144,7 @@ function addObservacao() {
     });
     textObj.set('id_tipo', 'observacao_texto');
     canvas.add(textObj); canvas.setActiveObject(textObj);
-    if(!window.alertadoObs) { alert("DICA DE MATERIAIS:\nDigite 'Quantidade Item' (Ex: 12 Fusões) e o sistema contará no Excel."); window.alertadoObs = true; }
+    if(!window.alertadoObs) { alert("Dica: Digite 'Quantidade Item' (Ex: 12 Fusões) e o sistema contará no Excel."); window.alertadoObs = true; }
 }
 
 function addPoste(tipo, x, y) {
@@ -218,7 +220,7 @@ function atualizarBitolas() {
     opcoes.forEach(v => { var opt = document.createElement("option"); opt.value = v; opt.innerHTML = v + " FO"; selectBitola.appendChild(opt); });
 }
 function deleteSelected() { var activeObjects = canvas.getActiveObjects(); if (activeObjects.length) { canvas.discardActiveObject(); activeObjects.forEach(o => canvas.remove(o)); } }
-document.addEventListener('keydown', function(e) { if(e.key === "Delete") { deleteSelected(); } });
+document.addEventListener('keydown', function(e) { if(e.key === "Delete") { deleteSelected(); } if(e.key === "Escape") { resetFerramentas(); } });
 
 // --- FINALIZAÇÃO ---
 function finalizarTudo() {
@@ -296,5 +298,3 @@ function gerarExcel(dados) {
 }
 
 atualizarBitolas();
-// Abre ajuda automaticamente na primeira visita (opcional)
-// setTimeout(abrirAjuda, 1000);
