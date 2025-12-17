@@ -3,11 +3,18 @@ var line, arrowHead;
 var isDrawingLine = false;
 var modoLinha = null;
 
-// --- FUNÇÕES DE AJUDA ---
+// --- GESTÃO DE MODAIS ---
 function abrirAjuda() { document.getElementById('modalAjuda').style.display = 'flex'; }
-function fecharAjuda() { document.getElementById('modalAjuda').style.display = 'none'; }
+function abrirModalSalvar() { document.getElementById('modalSalvar').style.display = 'flex'; }
+
+function fecharModais() { 
+    document.getElementById('modalAjuda').style.display = 'none'; 
+    document.getElementById('modalSalvar').style.display = 'none'; 
+}
+
 window.onclick = function(event) {
-    if (event.target == document.getElementById('modalAjuda')) fecharAjuda();
+    if (event.target == document.getElementById('modalAjuda')) fecharModais();
+    if (event.target == document.getElementById('modalSalvar')) fecharModais();
 }
 
 // --- DRAG & DROP (PRINCIPAL) ---
@@ -144,7 +151,6 @@ function addObservacao() {
     });
     textObj.set('id_tipo', 'observacao_texto');
     canvas.add(textObj); canvas.setActiveObject(textObj);
-    if(!window.alertadoObs) { alert("Dica: Digite 'Quantidade Item' (Ex: 12 Fusões) e o sistema contará no Excel."); window.alertadoObs = true; }
 }
 
 function addPoste(tipo, x, y) {
@@ -222,9 +228,34 @@ function atualizarBitolas() {
 function deleteSelected() { var activeObjects = canvas.getActiveObjects(); if (activeObjects.length) { canvas.discardActiveObject(); activeObjects.forEach(o => canvas.remove(o)); } }
 document.addEventListener('keydown', function(e) { if(e.key === "Delete") { deleteSelected(); } if(e.key === "Escape") { resetFerramentas(); } });
 
-// --- FINALIZAÇÃO ---
-function finalizarTudo() {
+// --- LÓGICA DE SALVAMENTO COM IDENTIFICAÇÃO PADRÃO ---
+
+function confirmarSalvar() {
+    // 1. Coleta de Dados
+    let nome = document.getElementById('inputNome').value;
+    let sobrenome = document.getElementById('inputSobrenome').value;
+    let re = document.getElementById('inputRE').value;
+    let at = document.getElementById('inputAT').value.toUpperCase();
+    let cabo = document.getElementById('inputCabo').value;
+    let primaria = document.getElementById('inputPrimaria').value;
+
+    if (!nome || !sobrenome || !re || !at || !cabo || !primaria) {
+        alert("Todos os campos são obrigatórios!");
+        return;
+    }
+
+    // 2. Padronização (Zeros à esquerda)
+    let caboPad = cabo.toString().padStart(2, '0');      // 5 -> 05
+    let primPad = primaria.toString().padStart(2, '0');  // 1 -> 01
+    let idProjeto = `${at}${caboPad}-F#${primPad}`;      // SJ05-F#01
+    
+    // Data Automática
+    let hoje = new Date().toLocaleDateString('pt-BR');
+
+    fecharModais();
     resetFerramentas();
+
+    // 3. Cálculos
     let dados = { 
         redeInstalada: 0, redeRetirada: 0, cordoalha: 0, postesXC: 0, postesXM: 0, ceoNova: 0, ceoExistente: 0, csCount: 0, ctops: {}, 
         observacoes: [], itensExtras: [] 
@@ -257,44 +288,106 @@ function finalizarTudo() {
         }
     });
 
-    var textoSelo = "RESUMO CROQUI:\nInstalado: " + dados.redeInstalada + "m\nRetirado: " + dados.redeRetirada + "m\nPostes: " + (dados.postesXC + dados.postesXM) + "\nCX Novas: " + dados.ceoNova;
-    var boxResumo = new fabric.Rect({ width: 280, height: 110, fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, left: 800, top: 20 });
-    var txtResumo = new fabric.Text(textoSelo, { fontSize: 13, fill: '#333', fontFamily: 'Courier New', left: 810, top: 30 });
-    var selo = new fabric.Group([boxResumo, txtResumo]);
-    canvas.add(selo);
+    // 4. Cabeçalho (Topo) - Com Informações Completas (ATUALIZADO)
+    // Monta o texto: "CROQUI SJ05-F#01  |  TÉC: JOÃO SILVA  |  DATA: 17/12/2025"
+    var textoTopo = `CROQUI ${idProjeto}  |  TÉC: ${nome.toUpperCase()} ${sobrenome.toUpperCase()}  |  DATA: ${hoje}`;
+
+    var boxHeader = new fabric.Rect({ 
+        width: 1100, 
+        height: 50, // Altura confortável
+        fill: '#3a0057', 
+        left: 0, 
+        top: 0, 
+        selectable: false 
+    });
+
+    var txtHeader = new fabric.Text(textoTopo, { 
+        fontSize: 18, // Tamanho ideal para leitura
+        fill: 'white', 
+        fontWeight: 'bold', 
+        fontFamily: 'Roboto', 
+        left: 20, 
+        top: 15, // Centralizado verticalmente
+        selectable: false 
+    });
+
+    canvas.add(boxHeader); 
+    canvas.add(txtHeader);
+
+    // 5. Carimbo Completo (Rodapé)
+    var textoSelo = 
+        `RESUMO DE MATERIAIS - ${idProjeto}\n` + // Adicionei o ID no título do carimbo também
+        `--------------------------\n` +
+        `Instalado: ${dados.redeInstalada}m\n` +
+        `Retirado:  ${dados.redeRetirada}m\n` +
+        `Cordoalha: ${dados.cordoalha}m\n` +
+        `Postes:    ${dados.postesXC + dados.postesXM}\n` +
+        `CX Novas:  ${dados.ceoNova}`;
+
+    var boxResumo = new fabric.Rect({ 
+        width: 300, height: 160, 
+        fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, 
+        left: canvas.width - 320, top: canvas.height - 180, selectable: false 
+    });
+    var txtResumo = new fabric.Text(textoSelo, { 
+        fontSize: 14, fill: '#333', fontFamily: 'Courier New', 
+        left: canvas.width - 310, top: canvas.height - 170, selectable: false 
+    });
+    
+    canvas.add(boxResumo); canvas.add(txtResumo);
     canvas.renderAll();
 
+    // 6. Gerar Arquivos
+    let userInfo = { nome, sobrenome, re, at, cabo: caboPad, primaria: primPad, idProjeto, hoje };
+    
     setTimeout(function() {
         var dataURL = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 2 });
-        var link = document.createElement('a'); link.download = 'CROQUI_Croqui.png'; link.href = dataURL; document.body.appendChild(link); link.click(); document.body.removeChild(link);
-        gerarExcel(dados);
+        var link = document.createElement('a'); 
+        link.download = idProjeto + '.png'; 
+        link.href = dataURL; 
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        
+        gerarExcel(dados, userInfo);
     }, 500);
 }
 
-function gerarExcel(dados) {
+function gerarExcel(dados, info) {
+    // Array com Cabeçalho Rico
     let linhas = [
-        { Item: "CABO (INSTALAÇÃO + RESERVA)", Quantidade: dados.redeInstalada, Unidade: "Metros" },
+        { Item: "PROJETO", Quantidade: info.idProjeto, Unidade: "" },
+        { Item: "TÉCNICO", Quantidade: info.nome + " " + info.sobrenome, Unidade: "" },
+        { Item: "REGISTRO (RE)", Quantidade: info.re, Unidade: "" },
+        { Item: "DATA", Quantidade: info.hoje, Unidade: "" },
+        { Item: "", Quantidade: "", Unidade: "" }, // Linha em branco
+        { Item: "--- MATERIAIS ---", Quantidade: "", Unidade: "" },
+        { Item: "CABO (INSTALAÇÃO)", Quantidade: dados.redeInstalada, Unidade: "Metros" },
         { Item: "CABO (RETIRADA)", Quantidade: dados.redeRetirada, Unidade: "Metros" },
         { Item: "CORDOALHA", Quantidade: dados.cordoalha, Unidade: "Metros" },
-        { Item: "CAIXA DE EMENDA (NOVA)", Quantidade: dados.ceoNova, Unidade: "Peça" },
-        { Item: "CAIXA SUBTERRÂNEA (CS)", Quantidade: dados.csCount, Unidade: "Peça" },
-        { Item: "POSTE CONCRETO (XC)", Quantidade: dados.postesXC, Unidade: "Peça" },
-        { Item: "POSTE MADEIRA (XM)", Quantidade: dados.postesXM, Unidade: "Peça" }
+        { Item: "CX EMENDA NOVA", Quantidade: dados.ceoNova, Unidade: "Peça" },
+        { Item: "CX SUBTERRÂNEA", Quantidade: dados.csCount, Unidade: "Peça" },
+        { Item: "POSTE CONCRETO", Quantidade: dados.postesXC, Unidade: "Peça" },
+        { Item: "POSTE MADEIRA", Quantidade: dados.postesXM, Unidade: "Peça" }
     ];
-    for (let [range, qtd] of Object.entries(dados.ctops)) { linhas.push({ Item: "CTOP FAIXA " + range, Quantidade: qtd, Unidade: "Peça" }); }
+    
+    for (let [range, qtd] of Object.entries(dados.ctops)) { linhas.push({ Item: "CTOP " + range, Quantidade: qtd, Unidade: "Peça" }); }
+    
     if (dados.itensExtras.length > 0) {
-        linhas.push({ Item: "--- MATERIAIS EXTRAS (NOTAS) ---", Quantidade: "", Unidade: "" });
+        linhas.push({ Item: "", Quantidade: "", Unidade: "" });
+        linhas.push({ Item: "--- EXTRAS (NOTAS) ---", Quantidade: "", Unidade: "" });
         dados.itensExtras.forEach(extra => { linhas.push({ Item: extra.item, Quantidade: extra.qtd, Unidade: "Und" }); });
     }
-    if (dados.observacoes.length > 0) {
-        linhas.push({ Item: "--- OBSERVAÇÕES GERAIS ---", Quantidade: "", Unidade: "" });
-        dados.observacoes.forEach(obs => linhas.push({ Item: obs, Quantidade: "-", Unidade: "Nota" }));
-    }
+    
     var ws = XLSX.utils.json_to_sheet(linhas);
+    
+    // Ajuste de largura das colunas
+    var wscols = [{wch:30}, {wch:20}, {wch:10}];
+    ws['!cols'] = wscols;
+
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Levantamento");
-    XLSX.writeFile(wb, "CROQUI_Materiais.xlsx");
-    alert("Arquivos do CROQUI Gerados!");
+    XLSX.writeFile(wb, info.idProjeto + ".xlsx");
+    
+    alert("Croqui salvo com sucesso: " + info.idProjeto);
 }
 
 atualizarBitolas();

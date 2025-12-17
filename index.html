@@ -15,42 +15,56 @@
 
 <div id="modalAjuda" class="modal">
     <div class="modal-content">
-        <span class="close" onclick="fecharAjuda()">&times;</span>
+        <span class="close" onclick="fecharModais()">&times;</span>
         <h2 class="modal-title">Manual de Operação</h2>
-        
         <div class="manual-grid">
             <div class="manual-col">
-                <h3>🛠️ Ferramentas de Desenho</h3>
-                <div class="help-item">
-                    <strong>1. Arrastar e Soltar (Drag & Drop)</strong>
-                    <p>Clique em qualquer item da barra lateral (Poste, Caixa, CTOP), segure o clique e <b>arraste</b> para dentro da área branca de desenho.</p>
-                </div>
-                <div class="help-item">
-                    <strong>2. Cabos (Magnetismo)</strong>
-                    <p>Selecione <i>Instalar</i> ou <i>Retirar</i>. Clique no centro de um poste e arraste até o próximo. O sistema alinha a linha automaticamente (Magnetismo).</p>
-                </div>
-                <div class="help-item">
-                    <strong>3. Seta de Detalhe</strong>
-                    <p>Use a ferramenta <b>↗️ Seta</b> para apontar detalhes. Clique onde a seta começa e arraste até o objeto. (Sem magnetismo, movimento livre).</p>
-                </div>
+                <h3>🛠️ Desenho</h3>
+                <p>Use as ferramentas de arrastar e soltar para criar o cenário. Use os cabos com magnetismo para conectar postes.</p>
             </div>
-
             <div class="manual-col">
-                <h3>🧠 Inteligência e Materiais</h3>
-                <div class="help-item">
-                    <strong>4. Notas Inteligentes (Excel)</strong>
-                    <p>Use o botão <b>📝 Nota</b> para criar um Post-it. Clique 2x para editar.<br>
-                    <span style="color:#d35400;">Contagem Automática:</span> Digite <code>Quantidade + Nome</code> (ex: <code>12 Fusões</code>). O sistema lerá isso e colocará na lista de materiais do Excel.</p>
-                </div>
-                <div class="help-item">
-                    <strong>5. Atalhos Úteis</strong>
-                    <p>• <b>Delete:</b> Apaga o item selecionado.<br>
-                    • <b>Salvar:</b> Gera o PNG e o XLSX instantaneamente.</p>
-                </div>
+                <h3>💾 Salvamento Padrão</h3>
+                <p>O sistema agora formata automaticamente:<br>
+                - Digite <b>1</b>, ele salva <b>01</b>.<br>
+                - O nome do arquivo será: <b>ATCABO-F#PRIM</b>.<br>
+                - Seus dados (RE/Nome) sairão no Excel.</p>
+            </div>
+        </div>
+        <button class="btn-salvar" style="width: 100%; margin-top: 15px;" onclick="fecharModais()">ENTENDI</button>
+    </div>
+</div>
+
+<div id="modalSalvar" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+        <span class="close" onclick="fecharModais()">&times;</span>
+        <h2 class="modal-title">Finalizar Croqui</h2>
+        
+        <div style="background: #f0f4f8; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+            <label class="form-label">Nome</label>
+            <input type="text" id="inputNome" placeholder="Seu Nome">
+            
+            <label class="form-label">Sobrenome</label>
+            <input type="text" id="inputSobrenome" placeholder="Seu Sobrenome">
+            
+            <label class="form-label">RE (Registro)</label>
+            <input type="text" id="inputRE" placeholder="Ex: 123456">
+        </div>
+
+        <label class="form-label">AT (2 Letras)</label>
+        <input type="text" id="inputAT" placeholder="Ex: SJ" maxlength="2" style="text-transform: uppercase;">
+
+        <div style="display: flex; gap: 10px;">
+            <div style="flex:1">
+                <label class="form-label">Cabo</label>
+                <input type="number" id="inputCabo" placeholder="Ex: 5" max="99">
+            </div>
+            <div style="flex:1">
+                <label class="form-label">Primária</label>
+                <input type="number" id="inputPrimaria" placeholder="Ex: 1" max="144">
             </div>
         </div>
 
-        <button class="btn-salvar" style="width: 100%; margin-top: 15px;" onclick="fecharAjuda()">FECHAR MANUAL</button>
+        <button class="btn-salvar" style="width: 100%; margin-top: 20px;" onclick="confirmarSalvar()">GERAR ARQUIVOS</button>
     </div>
 </div>
 
@@ -133,7 +147,7 @@
 
         <div style="margin-top: auto; padding-top: 10px;">
              <button class="btn-action" onclick="deleteSelected()" style="background-color: #c0392b; color: white;">🗑️ Apagar Seleção</button>
-             <button class="btn-salvar" onclick="finalizarTudo()">💾 SALVAR TUDO</button>
+             <button class="btn-salvar" onclick="abrirModalSalvar()">💾 SALVAR TUDO</button>
         </div>
     </div>
 
