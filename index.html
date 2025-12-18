@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CROQUI</title>
+    <title>CROQUI System v21</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><path d=%22M50 10 L20 80 M50 10 L80 80%22 stroke=%22%23660099%22 stroke-width=%228%22 stroke-linecap=%22round%22/><circle cx=%2250%22 cy=%2210%22 r=%226%22 fill=%22%2300ffff%22/><path d=%22M20 85 Q50 100 80 85%22 stroke=%22%2300ffff%22 stroke-width=%224%22 stroke-dasharray=%2210 5%22 fill=%22none%22/></svg>">
     
     <link rel="stylesheet" href="css/style.css">
     
@@ -19,7 +21,6 @@
         <h2 class="manual-title">📖 Manual do Usuário</h2>
         
         <div class="manual-scroll">
-            
             <div class="manual-section">
                 <h3>1. Montando o Cenário (Arrastar)</h3>
                 <p>Para colocar Postes, Caixas ou CTOPs:</p>
@@ -74,52 +75,50 @@
         <span class="close" onclick="fecharModais()">&times;</span>
         <h2 class="modal-title" style="border-bottom: 2px solid #660099; color: #660099;">Finalizar Croqui</h2>
         
-        <div style="background: #f0f4f8; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #d9e2ec;">
-            <label class="form-label">Nome</label>
-            <input type="text" id="inputNome" placeholder="Seu Nome">
-            
-            <label class="form-label">Sobrenome</label>
-            <input type="text" id="inputSobrenome" placeholder="Seu Sobrenome">
-            
-            <label class="form-label">RE (Registro)</label>
-            <input type="text" id="inputRE" placeholder="Ex: 123456">
+        <label class="form-label" style="color: #d35400;">Número da Ocorrência (Opcional)</label>
+        <input type="text" id="inputOcorrencia" placeholder="Deixe vazio para 'Levantamento de Obra'" style="border: 1px solid #d35400; background: #fffdf0;">
+
+        <div style="background: #f0f4f8; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #d9e2ec;">
+            <label class="form-label">Nome</label> <input type="text" id="inputNome" placeholder="Seu Nome">
+            <label class="form-label">Sobrenome</label> <input type="text" id="inputSobrenome" placeholder="Seu Sobrenome">
+            <label class="form-label">RE (Registro)</label> <input type="text" id="inputRE" placeholder="Ex: 123456">
         </div>
-
-        <label class="form-label">AT (2 Letras)</label>
-        <input type="text" id="inputAT" placeholder="Ex: SJ" maxlength="2" style="text-transform: uppercase;">
-
+        <label class="form-label">AT (2 Letras)</label> <input type="text" id="inputAT" placeholder="Ex: SJ" maxlength="2" style="text-transform: uppercase;">
         <div style="display: flex; gap: 10px;">
-            <div style="flex:1">
-                <label class="form-label">Cabo</label>
-                <input type="number" id="inputCabo" placeholder="Ex: 5" max="99">
-            </div>
-            <div style="flex:1">
-                <label class="form-label">Primária</label>
-                <input type="number" id="inputPrimaria" placeholder="Ex: 1" max="144">
-            </div>
+            <div style="flex:1"><label class="form-label">Cabo</label><input type="number" id="inputCabo" placeholder="Ex: 5" max="99"></div>
+            <div style="flex:1"><label class="form-label">Primária</label><input type="number" id="inputPrimaria" placeholder="Ex: 1" max="144"></div>
         </div>
-
         <button class="btn-salvar" style="width: 100%; margin-top: 20px;" onclick="confirmarSalvar()">GERAR ARQUIVOS</button>
     </div>
 </div>
 
 <div class="container">
     <div class="sidebar">
+        
         <div class="app-header">
-            <div>
-                <h2>CROQUI</h2>
-                <span></span>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 5px;">
+                <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M50 10 L20 80 M50 10 L80 80" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+                    <circle cx="50" cy="10" r="6" fill="#00ffff"/>
+                    <path d="M20 85 Q50 100 80 85" stroke="#00ffff" stroke-width="4" stroke-dasharray="10 5"/>
+                </svg>
+                <div style="text-align: left;">
+                    <h2 style="margin:0; line-height: 1;">CROQUI</h2>
+                    <span style="font-size: 9px; letter-spacing: 1px;">PRO SYSTEM</span>
+                </div>
             </div>
             <button class="btn-help-header" onclick="abrirAjuda()">📘 MANUAL</button>
         </div>
 
         <div class="tool-group">
-            <h3>📍 Identificação / Notas</h3>
-            <div class="btn-row">
-                <button class="btn-action" onclick="addNomeRua()">🅰️ Rua</button>
-                <button class="btn-action" onclick="addObservacao()">📝 Nota</button>
-                <button id="btnArrow" class="btn-seta" onclick="ativarModoLinha('seta')">↗️ Seta</button>
+            <h3>🔌 Desenho de Cabos</h3>
+            <div style="display: flex; gap: 4px;">
+                <button id="btnInstall" class="btn-cabo-novo" onclick="ativarModoLinha('instalar')">Instalar</button>
+                <button id="btnRet" class="btn-cabo-ret" onclick="ativarModoLinha('retirar')">Retirar</button>
             </div>
+            <button id="btnExist" class="btn-cabo-exist" onclick="ativarModoLinha('existente')">Existente</button>
+            <button id="btnCord" class="btn-cordoalha" onclick="ativarModoLinha('cordoalha')">Cordoalha (Guia)</button>
+            <button id="btnPare" class="btn-parar" onclick="resetFerramentas()">✋ Parar (ESC)</button>
         </div>
 
         <div class="tool-group">
@@ -139,25 +138,6 @@
         </div>
 
         <div class="tool-group">
-            <h3>🔌 Desenho de Cabos</h3>
-            <div style="display: flex; gap: 4px;">
-                <button id="btnInstall" class="btn-cabo-novo" onclick="ativarModoLinha('instalar')">Instalar</button>
-                <button id="btnRet" class="btn-cabo-ret" onclick="ativarModoLinha('retirar')">Retirar</button>
-            </div>
-            <button id="btnCord" class="btn-cordoalha" onclick="ativarModoLinha('cordoalha')">Cordoalha (Guia)</button>
-            <button id="btnPare" class="btn-parar" onclick="resetFerramentas()">✋ Parar (ESC)</button>
-        </div>
-
-        <div class="tool-group">
-            <h3>📏 Medições</h3>
-            <div style="display: flex; gap: 4px;">
-                <button class="btn-medida" onclick="addMedida('instalado')">Instalado</button>
-                <button class="btn-medida" onclick="addMedida('retirado')" style="border-color:#27ae60; color:#27ae60;">Retirado</button>
-            </div>
-            <button class="btn-medida" onclick="addMedida('cordoalha')" style="border-color:#2980b9; color:#2980b9;">Cordoalha</button>
-        </div>
-
-        <div class="tool-group">
             <h3>🎨 CTOP (Arraste)</h3>
             <div class="ctop-grid">
                 <button draggable="true" ondragstart="drag(event, 'ctop-EE82EE-01:08')" class="ctop-btn" style="background:#EE82EE;">01:08</button>
@@ -172,7 +152,25 @@
         </div>
 
         <div class="tool-group">
-            <h3>🏷️ TIPO DE CABO</h3>
+            <h3>📍 Identificação / Notas</h3>
+            <div class="btn-row">
+                <button class="btn-action" onclick="addNomeRua()">🅰️ Rua</button>
+                <button class="btn-action" onclick="addObservacao()">📝 Nota</button>
+                <button id="btnArrow" class="btn-seta" onclick="ativarModoLinha('seta')">↗️ Seta</button>
+            </div>
+        </div>
+
+        <div class="tool-group">
+            <h3>📏 Medições</h3>
+            <div style="display: flex; gap: 4px;">
+                <button class="btn-medida" onclick="addMedida('instalado')">Instalado</button>
+                <button class="btn-medida" onclick="addMedida('retirado')" style="border-color:#27ae60; color:#27ae60;">Retirado</button>
+            </div>
+            <button class="btn-medida" onclick="addMedida('cordoalha')" style="border-color:#2980b9; color:#2980b9;">Cordoalha</button>
+        </div>
+
+        <div class="tool-group">
+            <h3>🏷️ Tipo de Cabo</h3>
             <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                 <select id="tipoCabo" onchange="atualizarBitolas()" style="width: 100%;"><option>CFOA SM AS</option><option>DROP</option></select>
                 <select id="bitolaCabo" style="flex: 1;"></select>
@@ -182,6 +180,7 @@
 
         <div style="margin-top: auto; padding-top: 10px;">
              <button class="btn-action" onclick="deleteSelected()" style="background-color: #c0392b; color: white;">🗑️ Apagar Seleção</button>
+             <button class="btn-action" onclick="novoCroqui()" style="background-color: #3498db; color: white;">📄 NOVO CROQUI</button>
              <button class="btn-salvar" onclick="abrirModalSalvar()">💾 SALVAR TUDO</button>
         </div>
     </div>
