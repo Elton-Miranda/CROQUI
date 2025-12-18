@@ -2,28 +2,76 @@ var canvas = new fabric.Canvas('c');
 var line, arrowHead;
 var isDrawingLine = false;
 var modoLinha = null;
+var listaMateriaisManuais = []; 
 
 // --- FUNÇÃO NOVO CROQUI ---
 function novoCroqui() {
     if (confirm("Tem certeza que deseja apagar tudo e começar um NOVO croqui?")) {
         canvas.clear(); 
         resetFerramentas(); 
+        listaMateriaisManuais = []; 
     }
 }
 
 // --- GESTÃO DE MODAIS ---
 function abrirAjuda() { document.getElementById('modalAjuda').style.display = 'flex'; }
-function abrirModalSalvar() { document.getElementById('modalSalvar').style.display = 'flex'; }
+
+function abrirModalSalvar() { 
+    document.getElementById('modalSalvar').style.display = 'flex';
+    renderListaMateriais();
+}
+
 function fecharModais() { 
     document.getElementById('modalAjuda').style.display = 'none'; 
     document.getElementById('modalSalvar').style.display = 'none'; 
 }
+
+// --- LÓGICA DE MATERIAIS MANUAIS ---
+function addMaterialManual() {
+    let nome = document.getElementById('manualItem').value;
+    let qtd = document.getElementById('manualQtd').value;
+
+    if (!nome || !qtd) {
+        alert("Preencha Nome e Quantidade");
+        return;
+    }
+
+    listaMateriaisManuais.push({ item: nome, qtd: qtd });
+    document.getElementById('manualItem').value = "";
+    document.getElementById('manualQtd').value = "";
+    document.getElementById('manualItem').focus();
+    renderListaMateriais();
+}
+
+function renderListaMateriais() {
+    let ul = document.getElementById('listaMateriaisVisivel');
+    ul.innerHTML = "";
+    if (listaMateriaisManuais.length === 0) {
+        ul.innerHTML = "<li style='color:#999; text-align:center;'>Nenhum item extra adicionado.</li>";
+        return;
+    }
+    listaMateriaisManuais.forEach((mat, index) => {
+        let li = document.createElement("li");
+        li.style.borderBottom = "1px solid #ddd";
+        li.style.padding = "4px 0";
+        li.style.display = "flex";
+        li.style.justifyContent = "space-between";
+        li.innerHTML = `<span><b>${mat.qtd}</b> x ${mat.item}</span> <button onclick="removerMaterialManual(${index})" style="width:auto; height:20px; font-size:10px; background:#c0392b; color:white; padding:0 5px;">X</button>`;
+        ul.appendChild(li);
+    });
+}
+
+function removerMaterialManual(index) {
+    listaMateriaisManuais.splice(index, 1);
+    renderListaMateriais();
+}
+
 window.onclick = function(event) {
     if (event.target == document.getElementById('modalAjuda')) fecharModais();
     if (event.target == document.getElementById('modalSalvar')) fecharModais();
 }
 
-// --- DRAG & DROP ---
+// --- DRAG & DROP E FERRAMENTAS ---
 function drag(ev, tipo) { ev.dataTransfer.setData("tipoObjeto", tipo); }
 var dropZone = document.getElementById('dropZone');
 dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.querySelector('.canvas-wrapper').classList.add('drag-over'); });
@@ -42,7 +90,6 @@ dropZone.addEventListener('drop', function(e) {
     if(tipo.startsWith('ctop')) { let parts = tipo.split('-'); addCTOP(parts[1], parts[2], pointer.x, pointer.y); }
 });
 
-// --- FERRAMENTAS ---
 function resetFerramentas() {
     modoLinha = null; isDrawingLine = false;
     document.getElementById('btnInstall').classList.remove('ativo');
@@ -136,8 +183,8 @@ canvas.on('mouse:up', function(o){
 function addObservacao() {
     resetFerramentas();
     var textObj = new fabric.Textbox("12 Fusões\n2 Conectores", { 
-        width: 250, fontSize: 14, fill: '#856404', backgroundColor: '#fff3cd', fontFamily: 'Roboto', textAlign: 'left', originX: 'center', originY: 'center', 
-        splitByGrapheme: true, editable: true, left: canvas.width/2, top: canvas.height/2, padding: 10, borderColor: '#e0a800', borderWidth: 1
+        width: 250, fontSize: 14, fill: '#0a0a0aff', backgroundColor: '#e6e5e5ff', fontFamily: 'Roboto', textAlign: 'left', originX: 'center', originY: 'center', 
+        splitByGrapheme: true, editable: true, left: canvas.width/2, top: canvas.height/2, padding: 10, borderColor: '#ac00e0ff', borderWidth: 1
     });
     textObj.set('id_tipo', 'observacao_texto'); canvas.add(textObj); canvas.setActiveObject(textObj);
 }
@@ -154,8 +201,7 @@ function addCEO(existente, x, y) {
         group.set('id_tipo', 'ceo_existente'); canvas.add(group);
     } else {
         var circle = new fabric.Circle({ radius: 15, fill: 'white', stroke: '#2c3e50', strokeWidth: 3, originX: 'center', originY: 'center' });
-        var textVt = new fabric.Text("VT: 20m", { fontSize: 14, fill: '#c0392b', fontWeight: 'bold', left: -25, top: 50 });
-        var group = new fabric.Group([circle, textVt], { left: x, top: y, originX: 'center', originY: 'center' });
+        var group = new fabric.Group([circle], { left: x, top: y, originX: 'center', originY: 'center' });
         group.set('id_tipo', 'ceo_nova'); canvas.add(group);
     }
 }
@@ -185,7 +231,9 @@ function addMedida(tipo) {
     let label = "", corFundo = "";
     if (tipo === 'instalado') { label = "Rede Nova"; corFundo = "#FFD700"; }
     if (tipo === 'retirado') { label = "Rede Ret."; corFundo = "#a9dfbf"; }
+    if (tipo === 'existente') { label = "Rede Exist."; corFundo = "#ecf0f1"; }
     if (tipo === 'cordoalha') { label = "Cordoalha"; corFundo = "#aed6f1"; }
+    
     let metros = prompt("Metragem " + label + " (m):", "40");
     if (metros) {
         var text = new fabric.Text(label + ": " + metros + "m", { fontSize: 16, fontWeight: 'bold', backgroundColor: corFundo, left: canvas.width/2, top: canvas.height/2, padding: 5, originX: 'center', originY: 'center' });
@@ -225,15 +273,17 @@ function confirmarSalvar() {
     let cabo = document.getElementById('inputCabo').value;
     let primaria = document.getElementById('inputPrimaria').value;
     
-    // --- Lógica Condicional da Ocorrência ---
     let ocorrenciaInput = document.getElementById('inputOcorrencia').value;
     let textoOcorrencia = "";
-    
-    // Se tiver valor, usa "OC: valor". Se não, usa "LEVANTAMENTO DE OBRA"
     if (ocorrenciaInput && ocorrenciaInput.trim() !== "") {
         textoOcorrencia = "OC: " + ocorrenciaInput;
     } else {
         textoOcorrencia = "LEVANTAMENTO DE OBRA";
+    }
+
+    if (parseInt(primaria) > 144) {
+        alert("O número da Primária NÃO pode ser maior que 144!");
+        return;
     }
 
     if (!nome || !sobrenome || !re || !at || !cabo || !primaria) {
@@ -249,15 +299,16 @@ function confirmarSalvar() {
     fecharModais();
     resetFerramentas();
 
-    let dados = { redeInstalada: 0, redeRetirada: 0, cordoalha: 0, postesXC: 0, postesXM: 0, ceoNova: 0, ceoExistente: 0, csCount: 0, ctops: {}, observacoes: [], itensExtras: [] };
+    let dados = { redeInstalada: 0, redeRetirada: 0, redeExistente: 0, cordoalha: 0, postesXC: 0, postesXM: 0, ceoNova: 0, ceoExistente: 0, csCount: 0, ctops: {}, observacoes: [], itensExtras: [] };
     
     canvas.getObjects().forEach(function(obj) {
         if (obj.id_tipo === 'medida') {
             if (obj.sub_tipo === 'instalado') dados.redeInstalada += obj.valor_metragem;
             if (obj.sub_tipo === 'retirado') dados.redeRetirada += obj.valor_metragem;
             if (obj.sub_tipo === 'cordoalha') dados.cordoalha += obj.valor_metragem;
+            if (obj.sub_tipo === 'existente') dados.redeExistente += obj.valor_metragem;
         }
-        if (obj.id_tipo === 'ceo_nova') { dados.ceoNova++; dados.redeInstalada += 20; }
+        if (obj.id_tipo === 'ceo_nova') { dados.ceoNova++; } 
         if (obj.id_tipo === 'ceo_existente') dados.ceoExistente++;
         if (obj.id_tipo === 'caixa_subterranea') dados.csCount++;
         if (obj.id_tipo === 'poste') {
@@ -268,39 +319,35 @@ function confirmarSalvar() {
             let r = obj.sub_tipo; if(!dados.ctops[r]) dados.ctops[r] = 0; dados.ctops[r]++;
         }
         if (obj.id_tipo === 'observacao_texto') {
-            let linhas = obj.text.split('\n');
-            linhas.forEach(linha => {
-                linha = linha.trim();
-                if(!linha) return;
-                let match = linha.match(/^(\d+)[\sxX]+(.*)/);
-                if (match) { dados.itensExtras.push({ qtd: match[1], item: match[2] }); } else { dados.observacoes.push(linha); }
-            });
+            dados.observacoes.push(obj.text); 
         }
     });
 
-    // Cabeçalho Roxo Topo (Com a lógica da ocorrência)
+    listaMateriaisManuais.forEach(mat => {
+        dados.itensExtras.push({ qtd: mat.qtd, item: mat.item });
+    });
+
     var textoTopo = `CROQUI ${idProjeto}  |  ${textoOcorrencia}  |  TÉC: ${nome.toUpperCase()} ${sobrenome.toUpperCase()}  |  DATA: ${hoje}`;
     var boxHeader = new fabric.Rect({ width: 1100, height: 50, fill: '#3a0057', left: 0, top: 0, selectable: false });
     var txtHeader = new fabric.Text(textoTopo, { fontSize: 18, fill: 'white', fontWeight: 'bold', fontFamily: 'Roboto', left: 20, top: 15, selectable: false });
     canvas.add(boxHeader); canvas.add(txtHeader);
 
-    // Carimbo Rodapé
     var textoSelo = 
-        `RESUMO DE MATERIAIS - ${idProjeto}\n` +
-        `--------------------------\n` +
+        `PROJETO: ${idProjeto}\n` +
+        `TÉCNICO: ${nome.toUpperCase()} ${sobrenome.toUpperCase()}\n` +
+        `DATA:    ${hoje}\n` +
+        `OC:      ${textoOcorrencia}\n` +
+        `------------------------------\n` +
+        `RESUMO DE CABOS\n` +
         `Instalado: ${dados.redeInstalada}m\n` +
-        `Retirado:  ${dados.redeRetirada}m\n` +
-        `Cordoalha: ${dados.cordoalha}m\n` +
-        `Postes:    ${dados.postesXC + dados.postesXM}\n` +
-        `CX Novas:  ${dados.ceoNova}`;
+        `Retirado:  ${dados.redeRetirada}m`;
 
-    var boxResumo = new fabric.Rect({ width: 300, height: 160, fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, left: canvas.width - 320, top: canvas.height - 180, selectable: false });
-    var txtResumo = new fabric.Text(textoSelo, { fontSize: 14, fill: '#333', fontFamily: 'Courier New', left: canvas.width - 310, top: canvas.height - 170, selectable: false });
+    var boxResumo = new fabric.Rect({ width: 340, height: 180, fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, left: canvas.width - 360, top: canvas.height - 200, selectable: false });
+    var txtResumo = new fabric.Text(textoSelo, { fontSize: 14, fill: '#333', fontFamily: 'Courier New', left: canvas.width - 350, top: canvas.height - 190, selectable: false });
     
     canvas.add(boxResumo); canvas.add(txtResumo);
     canvas.renderAll();
 
-    // Passamos o textoOcorrencia para o Excel também
     let userInfo = { nome, sobrenome, re, at, cabo: caboPad, primaria: primPad, idProjeto, hoje, tipoObra: textoOcorrencia };
     
     setTimeout(function() {
@@ -317,30 +364,26 @@ function confirmarSalvar() {
 function gerarExcel(dados, info) {
     let linhas = [
         { Item: "PROJETO", Quantidade: info.idProjeto, Unidade: "" },
-        { Item: "TIPO", Quantidade: info.tipoObra, Unidade: "" }, // Nova linha no Excel
+        { Item: "TIPO", Quantidade: info.tipoObra, Unidade: "" },
         { Item: "TÉCNICO", Quantidade: info.nome + " " + info.sobrenome, Unidade: "" },
         { Item: "REGISTRO (RE)", Quantidade: info.re, Unidade: "" },
         { Item: "DATA", Quantidade: info.hoje, Unidade: "" },
         { Item: "", Quantidade: "", Unidade: "" },
-        { Item: "--- MATERIAIS ---", Quantidade: "", Unidade: "" },
+        { Item: "--- CABOS E CORDOALHA ---", Quantidade: "", Unidade: "" },
         { Item: "CABO (INSTALAÇÃO)", Quantidade: dados.redeInstalada, Unidade: "Metros" },
         { Item: "CABO (RETIRADA)", Quantidade: dados.redeRetirada, Unidade: "Metros" },
-        { Item: "CORDOALHA", Quantidade: dados.cordoalha, Unidade: "Metros" },
-        { Item: "CX EMENDA NOVA", Quantidade: dados.ceoNova, Unidade: "Peça" },
-        { Item: "CX SUBTERRÂNEA", Quantidade: dados.csCount, Unidade: "Peça" },
-        { Item: "POSTE CONCRETO", Quantidade: dados.postesXC, Unidade: "Peça" },
-        { Item: "POSTE MADEIRA", Quantidade: dados.postesXM, Unidade: "Peça" }
+        { Item: "CORDOALHA", Quantidade: dados.cordoalha, Unidade: "Metros" }
     ];
-    for (let [range, qtd] of Object.entries(dados.ctops)) { linhas.push({ Item: "CTOP " + range, Quantidade: qtd, Unidade: "Peça" }); }
+    
+    // --- ALTERAÇÃO AQUI: Removemos os loops de Postes, Caixas e CTOPs automáticos do Excel ---
+    
+    // Lista de Materiais Manuais (A "Última Etapa")
     if (dados.itensExtras.length > 0) {
         linhas.push({ Item: "", Quantidade: "", Unidade: "" });
-        linhas.push({ Item: "--- EXTRAS (NOTAS) ---", Quantidade: "", Unidade: "" });
+        linhas.push({ Item: "--- MATERIAIS EXTRAS (MANUAL) ---", Quantidade: "", Unidade: "" });
         dados.itensExtras.forEach(extra => { linhas.push({ Item: extra.item, Quantidade: extra.qtd, Unidade: "Und" }); });
     }
-    if (dados.observacoes.length > 0) {
-        linhas.push({ Item: "--- OBSERVAÇÕES GERAIS ---", Quantidade: "", Unidade: "" });
-        dados.observacoes.forEach(obs => linhas.push({ Item: obs, Quantidade: "-", Unidade: "Nota" }));
-    }
+    
     var ws = XLSX.utils.json_to_sheet(linhas);
     var wscols = [{wch:30}, {wch:20}, {wch:10}]; ws['!cols'] = wscols;
     var wb = XLSX.utils.book_new();

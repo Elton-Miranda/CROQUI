@@ -21,6 +21,7 @@
         <h2 class="manual-title">📖 Manual do Usuário</h2>
         
         <div class="manual-scroll">
+            
             <div class="manual-section">
                 <h3>1. Montando o Cenário (Arrastar)</h3>
                 <p>Para colocar Postes, Caixas ou CTOPs:</p>
@@ -33,32 +34,36 @@
 
             <div class="manual-section">
                 <h3>2. Passando Cabos (Ímã)</h3>
-                <p>O sistema ajuda a desenhar reto:</p>
+                <p>O sistema ajuda a desenhar reto e calcula a metragem automaticamente:</p>
                 <ul>
-                    <li>Escolha <b>Instalar</b> (Vermelho), <b>Retirar</b> (Verde) ou <b>Cordoalha</b> (Azul).</li>
+                    <li>Escolha <b>Instalar</b> (Vermelho), <b>Retirar</b> (Verde), <b>Existente</b> (Preto) ou <b>Cordoalha</b> (Azul).</li>
                     <li>Clique no meio de um poste (o mouse é atraído para o centro).</li>
                     <li>Arraste até o próximo poste e solte.</li>
-                </ul>
-                <p class="nota-dica">💡 <b>Dica:</b> Para parar de desenhar ou cancelar, clique no botão cinza <b>✋ Parar (ESC)</b>.</p>
-            </div>
-
-            <div class="manual-section">
-                <h3>3. O Segredo das Notas (Excel)</h3>
-                <p>O botão <b>📝 Nota</b> cria um post-it inteligente:</p>
-                <ul>
-                    <li>Se digitar só texto (ex: <i>"Poste quebrado"</i>), sai como observação.</li>
-                    <li><b>IMPORTANTE:</b> Se digitar Quantidade + Nome (ex: <code>12 Fusões</code> ou <code>2 Alças</code>), o sistema conta isso na planilha de materiais!</li>
+                    <li>Para parar de desenhar, clique em <b>✋ Parar (ESC)</b>.</li>
                 </ul>
             </div>
 
             <div class="manual-section">
-                <h3>4. Finalizando</h3>
-                <p>Ao clicar em <b>💾 SALVAR TUDO</b>, preencha:</p>
+                <h3>3. Notas e Observações</h3>
+                <p>O botão <b>📝 Nota</b> cria um bloco de texto para anotações visuais no croqui.</p>
                 <ul>
-                    <li><b>Seus Dados:</b> Nome e RE.</li>
-                    <li><b>O Projeto:</b> AT (ex: SJ), Cabo (ex: 5) e Primária (ex: 1).</li>
+                    <li>Use para indicar detalhes como "Poste Quebrado" ou "Árvore na rede".</li>
+                    <li><b>Atenção:</b> O que for escrito aqui NÃO é contabilizado na planilha. Materiais extras devem ser inseridos na hora de salvar.</li>
                 </ul>
-                <p>O sistema formata os zeros (05, 01) e gera a imagem e o Excel automaticamente.</p>
+            </div>
+
+            <div class="manual-section">
+                <h3>4. Finalizando e Carimbo</h3>
+                <p>Ao clicar em <b>💾 SALVAR TUDO</b>, uma janela se abrirá para:</p>
+                <ul>
+                    <li>Preencher seus dados (Nome, RE) e dados da Obra (AT, Ocorrência).</li>
+                    <li><b>Adicionar Materiais Extras:</b> Uma lista manual onde você insere itens como Alças, Fusões, etc.</li>
+                </ul>
+                <p>O sistema irá gerar:</p>
+                <ol>
+                    <li>Uma imagem PNG com o <b>Carimbo Completo</b> (Dados do Técnico + Resumo de Cabos).</li>
+                    <li>Uma planilha Excel detalhada com todos os materiais.</li>
+                </ol>
             </div>
 
             <div class="manual-footer">
@@ -71,24 +76,48 @@
 </div>
 
 <div id="modalSalvar" class="modal">
-    <div class="modal-content" style="max-width: 400px;">
+    <div class="modal-content" style="max-width: 450px; max-height: 90vh; overflow-y: auto;">
         <span class="close" onclick="fecharModais()">&times;</span>
         <h2 class="modal-title" style="border-bottom: 2px solid #660099; color: #660099;">Finalizar Croqui</h2>
         
         <label class="form-label" style="color: #d35400;">Número da Ocorrência (Opcional)</label>
-        <input type="text" id="inputOcorrencia" placeholder="Deixe vazio para 'Levantamento de Obra'" style="border: 1px solid #d35400; background: #fffdf0;">
+        <input type="text" id="inputOcorrencia" placeholder="Vazio = 'Levantamento de Obra'" style="border: 1px solid #d35400; background: #fffdf0;">
 
-        <div style="background: #f0f4f8; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #d9e2ec;">
-            <label class="form-label">Nome</label> <input type="text" id="inputNome" placeholder="Seu Nome">
-            <label class="form-label">Sobrenome</label> <input type="text" id="inputSobrenome" placeholder="Seu Sobrenome">
-            <label class="form-label">RE (Registro)</label> <input type="text" id="inputRE" placeholder="Ex: 123456">
+        <div style="background: #f0f4f8; padding: 10px; border-radius: 8px; margin: 10px 0; border: 1px solid #d9e2ec;">
+            <div style="display:flex; gap:5px;">
+                <div style="flex:1"><label class="form-label">Nome</label><input type="text" id="inputNome"></div>
+                <div style="flex:1"><label class="form-label">Sobrenome</label><input type="text" id="inputSobrenome"></div>
+            </div>
+            <label class="form-label">RE (Registro)</label> <input type="text" id="inputRE">
         </div>
-        <label class="form-label">AT (2 Letras)</label> <input type="text" id="inputAT" placeholder="Ex: SJ" maxlength="2" style="text-transform: uppercase;">
-        <div style="display: flex; gap: 10px;">
-            <div style="flex:1"><label class="form-label">Cabo</label><input type="number" id="inputCabo" placeholder="Ex: 5" max="99"></div>
-            <div style="flex:1"><label class="form-label">Primária</label><input type="number" id="inputPrimaria" placeholder="Ex: 1" max="144"></div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <div style="flex:1"><label class="form-label">AT (2 Letras)</label><input type="text" id="inputAT" maxlength="2" style="text-transform: uppercase;"></div>
+            <div style="flex:1"><label class="form-label">Cabo</label><input type="number" id="inputCabo"></div>
+            <div style="flex:1"><label class="form-label">Primária</label><input type="number" id="inputPrimaria" max="144"></div>
         </div>
-        <button class="btn-salvar" style="width: 100%; margin-top: 20px;" onclick="confirmarSalvar()">GERAR ARQUIVOS</button>
+
+        <div style="border-top: 2px dashed #ccc; padding-top: 10px; margin-top: 10px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #333;">📋 Inserir Materiais Extras (Manual)</h3>
+            
+            <div style="display: flex; gap: 5px; align-items: flex-end;">
+                <div style="flex: 2;">
+                    <label class="form-label">Nome do Item</label>
+                    <input type="text" id="manualItem" placeholder="Ex: Fusão, Alça...">
+                </div>
+                <div style="flex: 1;">
+                    <label class="form-label">Qtd</label>
+                    <input type="number" id="manualQtd" placeholder="0">
+                </div>
+                <button onclick="addMaterialManual()" style="width: auto; background: #27ae60; color: white; height: 36px; margin-bottom: 6px;">+</button>
+            </div>
+
+            <ul id="listaMateriaisVisivel" style="background: #eee; min-height: 50px; padding: 10px; list-style: none; border-radius: 4px; margin-top: 5px; font-size: 12px; color: #333;">
+                <li style="color: #999; text-align: center;">Nenhum item extra adicionado.</li>
+            </ul>
+        </div>
+
+        <button class="btn-salvar" style="width: 100%; margin-top: 20px;" onclick="confirmarSalvar()">GERAR ARQUIVOS E CARIMBO</button>
     </div>
 </div>
 
@@ -104,10 +133,10 @@
                 </svg>
                 <div style="text-align: left;">
                     <h2 style="margin:0; line-height: 1;">CROQUI</h2>
-                    <span style="font-size: 9px; letter-spacing: 1px;">beta</span>
+                    <span style="font-size: 9px; letter-spacing: 1px;">beta version</span>
                 </div>
             </div>
-            <button class="btn-help-header" onclick="abrirAjuda()">📘 MANUAL</button>
+            <button class="btn-help-header" onclick="abrirAjuda()">📘 MANUAL DO USUÁRIO</button>
         </div>
 
         <div class="tool-group">
@@ -123,8 +152,8 @@
 
         <div class="tool-group">
             <h3>🏗️ Infraestrutura (Arraste)</h3>
-            <button draggable="true" ondragstart="drag(event, 'posteXC')" class="btn-infra"><span class="icon">I</span>Poste Concreto</button>
-            <button draggable="true" ondragstart="drag(event, 'posteXM')" class="btn-infra"><span class="icon">I</span>Poste Madeira</button>
+            <button draggable="true" ondragstart="drag(event, 'posteXC')" class="btn-infra"><span class="icon">🔵</span>Poste Concreto</button>
+            <button draggable="true" ondragstart="drag(event, 'posteXM')" class="btn-infra"><span class="icon">🔵</span>Poste Madeira</button>
             <button draggable="true" ondragstart="drag(event, 'subidaLateral')" class="btn-infra" style="border-left: 3px solid #e74c3c;"><span class="icon">📈</span>Subida Lateral</button>
         </div>
 
@@ -166,7 +195,10 @@
                 <button class="btn-medida" onclick="addMedida('instalado')">Instalado</button>
                 <button class="btn-medida" onclick="addMedida('retirado')" style="border-color:#27ae60; color:#27ae60;">Retirado</button>
             </div>
-            <button class="btn-medida" onclick="addMedida('cordoalha')" style="border-color:#2980b9; color:#2980b9;">Cordoalha</button>
+            <div style="display: flex; gap: 4px;">
+                <button class="btn-medida" onclick="addMedida('existente')" style="border-color:#555; color:#555;">Existente</button>
+                <button class="btn-medida" onclick="addMedida('cordoalha')" style="border-color:#2980b9; color:#2980b9;">Cordoalha</button>
+            </div>
         </div>
 
         <div class="tool-group">
@@ -179,10 +211,10 @@
         </div>
 
         <div style="margin-top: auto; padding-top: 10px;">
-             <button class="btn-action" onclick="deleteSelected()" style="background-color: #c0392b; color: white;">🗑️ Apagar Seleção</button>
-             <button class="btn-action" onclick="novoCroqui()" style="background-color: #3498db; color: white;">📄 NOVO CROQUI</button>
-             <button class="btn-salvar" onclick="abrirModalSalvar()">💾 SALVAR TUDO</button>
-        </div>
+     <button class="btn-action" onclick="deleteSelected()" style="background-color: #c0392b; color: white; justify-content: center;">🗑️ Apagar Seleção</button>
+     <button class="btn-action" onclick="novoCroqui()" style="background-color: #3498db; color: white; justify-content: center;">📄 NOVO CROQUI</button>
+     <button class="btn-salvar" onclick="abrirModalSalvar()" style="justify-content: center;">💾 SALVAR TUDO</button>
+</div>
     </div>
 
     <div class="canvas-area" id="dropZone">
