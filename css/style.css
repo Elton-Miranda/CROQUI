@@ -74,3 +74,86 @@ input[type="text"], input[type="number"] { padding: 8px; border: 1px solid #ccc;
 .manual-content .btn-salvar { margin: 20px; width: calc(100% - 40px) !important; }
 
 @keyframes slideDown { from {transform: translateY(-50px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
+
+/* --- RESPONSIVIDADE (ADAPTAÇÃO DE TELA) --- */
+ 
+/* Ajustes para Tablets e Notebooks Pequenos (Menor que 1024px) */
+@media (max-width: 1024px) {
+    .sidebar {
+        width: 260px; /* Diminui um pouco a largura da barra */
+        min-width: 260px;
+    }
+    
+    /* Botões ficam um pouco menores */
+    button { padding: 6px 8px; font-size: 11px; }
+    .app-header h2 { font-size: 20px; }
+}
+ 
+/* Ajustes para Celulares e Tablets em Pé (Menor que 768px) */
+@media (max-width: 768px) {
+    /* Muda a direção do layout: Barra em cima, desenho embaixo */
+    .container {
+        flex-direction: column;
+    }
+ 
+    /* A barra lateral vira um cabeçalho rolável */
+    .sidebar {
+        width: 100%;
+        min-width: 0;
+        height: 180px; /* Altura fixa no topo */
+        min-height: 180px;
+        flex-direction: row; /* Itens lado a lado */
+        flex-wrap: nowrap; /* Não quebra linha, cria scroll horizontal */
+        overflow-x: auto; /* Scroll para o lado */
+        overflow-y: hidden;
+        padding: 10px;
+        gap: 15px;
+        align-items: flex-start;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+ 
+    /* Ajusta a barra de rolagem da sidebar no celular */
+    .sidebar::-webkit-scrollbar { height: 6px; width: 0; }
+    
+    /* Os grupos de ferramentas ficam em colunas verticais dentro da barra horizontal */
+    .tool-group {
+        min-width: 160px; /* Largura mínima para cada bloco não esmagar */
+        height: 140px; /* Altura fixa para caber na barra */
+        overflow-y: auto; /* Scroll dentro do bloquinho se precisar */
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+ 
+    /* Cabeçalho fica compacto à esquerda */
+    .app-header {
+        min-width: 120px;
+        border-bottom: none;
+        border-right: 1px solid rgba(255,255,255,0.2);
+        padding-right: 10px;
+        margin-right: 5px;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+ 
+    /* Rodapé (Botões de salvar) ficam no final da fila horizontal */
+    .sidebar > div[style*="margin-top: auto"] {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        min-width: 140px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+ 
+    /* O Canvas ocupa o resto da tela */
+    .canvas-area {
+        width: 100%;
+        height: calc(100vh - 180px); /* 100% menos a altura da barra */
+        padding: 10px;
+        align-items: flex-start; /* Começa do topo */
+        justify-content: flex-start; /* Começa da esquerda */
+    }
+}
