@@ -229,14 +229,14 @@ function addCTOP(cor, range, x, y) {
 function addMedida(tipo) {
     resetFerramentas();
     let label = "", corFundo = "";
-    if (tipo === 'instalado') { label = "Rede Nova"; corFundo = "#FFD700"; }
-    if (tipo === 'retirado') { label = "Rede Ret."; corFundo = "#a9dfbf"; }
-    if (tipo === 'existente') { label = "Rede Exist."; corFundo = "#ecf0f1"; }
-    if (tipo === 'cordoalha') { label = "Cordoalha"; corFundo = "#aed6f1"; }
+    if (tipo === 'instalado') { label = ""; corFundo = "#ff0000"; }
+    if (tipo === 'retirado') { label = ""; corFundo = "#a9dfbf"; }
+    if (tipo === 'existente') { label = ""; corFundo = "#ecf0f1"; }
+    if (tipo === 'cordoalha') { label = ""; corFundo = "#aed6f1"; }
     
     let metros = prompt("Metragem " + label + " (m):", "40");
     if (metros) {
-        var text = new fabric.Text(label + ": " + metros + "m", { fontSize: 16, fontWeight: 'bold', backgroundColor: corFundo, left: canvas.width/2, top: canvas.height/2, padding: 5, originX: 'center', originY: 'center' });
+        var text = new fabric.Text(label + " " + metros + "m", { fontSize: 16, fontWeight: 'bold', backgroundColor: corFundo, left: canvas.width/2, top: canvas.height/2, padding: 5, originX: 'center', originY: 'center' });
         text.set('id_tipo', 'medida'); text.set('sub_tipo', tipo); text.set('valor_metragem', parseFloat(metros)); canvas.add(text);
     }
 }
