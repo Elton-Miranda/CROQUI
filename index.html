@@ -217,6 +217,25 @@
 </div>
     </div>
 
+<div class="main-content" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+        
+        <div class="pagination-bar">
+            <button onclick="mudarPagina(-1)">◀ Anterior</button>
+            <span id="indicadorPagina">Página 1 de 1</span>
+            <button onclick="mudarPagina(1)">Próxima ▶</button>
+            <div style="width: 1px; height: 20px; background: #ccc; margin: 0 10px;"></div>
+            <button onclick="adicionarPagina()" style="background: #6c5ce7; color: white;">+ Nova Pág.</button>
+            <button onclick="removerPaginaAtual()" style="background: #c0392b; color: white;">✖ Remover</button>
+        </div>
+
+        <div class="canvas-area" id="dropZone">
+            <div class="canvas-wrapper">
+                <canvas id="c" width="1100" height="700"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+    
     <div class="canvas-area" id="dropZone">
         <div class="canvas-wrapper">
             <canvas id="c" width="1100" height="700"></canvas>

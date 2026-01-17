@@ -1,23 +1,71 @@
-/* --- MANTENHA TODO O CSS ANTERIOR --- */
-:root { --brand-color: #660099; --brand-dark: #3a0057; --glass-bg: rgba(255, 255, 255, 0.1); --glass-border: rgba(255, 255, 255, 0.2); }
-body { font-family: 'Roboto', sans-serif; background-color: #eef1f5; display: flex; flex-direction: column; height: 100vh; margin: 0; overflow: hidden; }
-.container { display: flex; flex: 1; height: 100%; }
+/* --- VISUAL CLÁSSICO (CORES ORIGINAIS) --- */
+:root { 
+    --brand-color: #660099; 
+    --brand-dark: #3a0057; 
+    --glass-bg: rgba(255, 255, 255, 0.1); 
+    --glass-border: rgba(255, 255, 255, 0.2); 
+}
 
-.sidebar { width: 320px; min-width: 320px; background: linear-gradient(160deg, var(--brand-color) 0%, var(--brand-dark) 100%); color: white; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; box-shadow: 4px 0 15px rgba(0,0,0,0.3); z-index: 10; }
+body { 
+    font-family: 'Roboto', sans-serif; 
+    background-color: #eef1f5; 
+    display: flex; 
+    flex-direction: column; 
+    height: 100vh; 
+    margin: 0; 
+    overflow: hidden; 
+}
+
+.container { display: flex; flex: 1; height: 100%; position: relative; }
+
+/* --- SIDEBAR (BARRA LATERAL) --- */
+.sidebar { 
+    width: 320px; 
+    min-width: 320px; 
+    background: linear-gradient(160deg, var(--brand-color) 0%, var(--brand-dark) 100%); 
+    color: white; 
+    padding: 15px; 
+    overflow-y: auto; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+    box-shadow: 4px 0 15px rgba(0,0,0,0.3); 
+    z-index: 10; 
+}
 .sidebar::-webkit-scrollbar { width: 6px; }
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
 
+/* --- CABEÇALHO --- */
 .app-header { text-align: center; margin-bottom: 5px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; }
 .app-header h2 { margin: 0; font-size: 24px; letter-spacing: 2px; font-weight: 900; }
 .app-header span { font-size: 10px; opacity: 0.8; text-transform: uppercase; letter-spacing: 2px; }
 
-.btn-help-header { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; cursor: pointer; margin-top: 5px; transition: 0.2s; font-weight: bold; }
+.btn-help-header { 
+    background: rgba(255,255,255,0.2); 
+    border: 1px solid rgba(255,255,255,0.4); 
+    color: white; 
+    border-radius: 20px; 
+    padding: 4px 12px; 
+    font-size: 11px; 
+    cursor: pointer; 
+    margin-top: 5px; 
+    transition: 0.2s; 
+    font-weight: bold; 
+}
 .btn-help-header:hover { background: white; color: var(--brand-color); }
 
+/* --- BLOCOS DE FERRAMENTAS --- */
 .tool-group { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px; backdrop-filter: blur(5px); }
 .tool-group h3 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: rgba(255,255,255,0.7); font-weight: 500; }
 
-button { padding: 8px 10px; margin-bottom: 5px; width: 100%; cursor: grab; border: none; border-radius: 4px; font-size: 12px; font-weight: 500; display: flex; align-items: center; transition: all 0.2s ease; background-color: rgba(255,255,255,0.95); color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+/* --- BOTÕES --- */
+button { 
+    padding: 8px 10px; margin-bottom: 5px; width: 100%; cursor: grab; 
+    border: none; border-radius: 4px; font-size: 12px; font-weight: 500; 
+    display: flex; align-items: center; transition: all 0.2s ease; 
+    background-color: rgba(255,255,255,0.95); color: #333; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+}
 button:active { transform: translateY(1px); }
 button:hover { transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.15); }
 
@@ -25,39 +73,42 @@ button:hover { transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.1
 .btn-row button { flex: 1; justify-content: center; }
 .btn-row button span.icon { margin: 0; }
 
+/* Estilos Específicos dos Botões (Cores Originais) */
 .btn-infra { border-left: 3px solid #7f8c8d; }
 .btn-cx-exist { border-left: 3px solid #000; }
 .btn-cx-nova { border-left: 3px solid #fff; border: 1px solid #ccc; }
 .btn-cs { border-left: 3px solid #34495e; background-color: #eaeded; }
 .btn-cabo-novo { background-color: #ffeff0; color: #c0392b; border: 1px solid #e74c3c; }
 .btn-cabo-ret { background-color: #e8f8f5; color: #27ae60; border: 1px solid #2ecc71; }
-/* NOVO BOTÃO */
 .btn-cabo-exist { background-color: #f4f4f4; color: #000; border: 1px solid #333; }
-
 .btn-cordoalha { background-color: #eafaf1; color: #2980b9; border: 1px solid #3498db; }
 .btn-seta { background-color: #ffe6e6; color: #c0392b; border: 1px solid #ffcccc; } 
-.btn-parar { background-color: #95a5a6; color: white; opacity: 0.8; }
+.btn-parar { background-color: #95a5a6; color: white; opacity: 0.8; justify-content: center; }
 .btn-salvar { background: linear-gradient(45deg, #00b09b, #96c93d); color: white; font-weight: bold; padding: 12px; margin-top: auto; justify-content: center; }
 .btn-medida { background-color: #fff8e1; color: #d35400; border: 1px solid #f1c40f; }
 .ativo { background-color: #fff !important; border: 2px solid #f1c40f !important; transform: scale(1.02); box-shadow: 0 0 8px #f1c40f; }
 
+/* --- CTOP --- */
 .ctop-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 3px; }
 .ctop-btn { height: 26px; font-size: 9px; justify-content: center; border: 1px solid rgba(0,0,0,0.1); font-weight: bold; padding: 0;}
 
-select, input { width: 100%; padding: 6px; margin-bottom: 6px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px; background: #fff; }
+/* --- FORMULÁRIOS --- */
+select, input { width: 100%; padding: 6px; margin-bottom: 6px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px; background: #fff; color: #333; }
 .form-label { display: block; text-align: left; font-size: 11px; color: #666; margin-bottom: 2px; margin-top: 8px; font-weight: bold; text-transform: uppercase; }
 input[type="text"], input[type="number"] { padding: 8px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; font-size: 14px; }
 
+/* --- ÁREA DE DESENHO --- */
 .canvas-area { flex: 1; background-color: #e0e5ec; background-image: radial-gradient(#cbd2d9 1px, transparent 1px); background-size: 20px 20px; display: flex; justify-content: center; align-items: center; overflow: auto; padding: 30px; }
 .canvas-wrapper { box-shadow: 0 10px 30px rgba(0,0,0,0.15); border-radius: 4px; overflow: hidden; background: white; transition: border 0.2s; }
 .drag-over { border: 4px dashed #660099; }
 
+/* --- MODAIS --- */
 .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
 .modal-content { background-color: #fff; margin: auto; padding: 30px; border-radius: 8px; position: relative; animation: slideDown 0.3s ease; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
 .close { position: absolute; top: 20px; right: 25px; font-size: 30px; font-weight: bold; color: #aaa; cursor: pointer; }
 .close:hover { color: #000; }
 
-/* ESTILOS MANUAL */
+/* --- MANUAL --- */
 .manual-content { width: 90%; max-width: 600px; height: 85vh; padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; }
 .manual-title { background-color: var(--brand-color); color: white; margin: 0; padding: 20px; font-size: 20px; text-align: center; }
 .manual-content .close { color: white; top: 15px; right: 20px; opacity: 0.8; }
@@ -73,4 +124,103 @@ input[type="text"], input[type="number"] { padding: 8px; border: 1px solid #ccc;
 .manual-footer p { margin: 0; font-size: 13px; font-weight: bold; color: #333; }
 .manual-content .btn-salvar { margin: 20px; width: calc(100% - 40px) !important; }
 
+/* --- RESPONSIVIDADE MOBILE (MENU GAVETA) --- */
+
+/* Botão Mobile (Só aparece em telas pequenas) */
+.btn-mobile-menu {
+    display: none;
+    position: fixed;
+    top: 10px; left: 10px;
+    z-index: 2000;
+    background-color: var(--brand-color);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 50px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    font-size: 16px;
+    border: 2px solid white;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .btn-mobile-menu { display: block; }
+
+    /* Barra vira gaveta lateral */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -320px; /* Escondido */
+        height: 100vh;
+        z-index: 1500;
+        transition: left 0.3s ease;
+        box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+    }
+
+    .sidebar.aberto { left: 0; }
+
+    /* Canvas ocupa a tela toda */
+    .canvas-area {
+        width: 100%;
+        height: 100vh;
+        padding: 0;
+        overflow: auto;
+    }
+    
+    .canvas-wrapper {
+        margin-top: 60px; /* Espaço pro botão */
+        box-shadow: none;
+    }
+}
+
 @keyframes slideDown { from {transform: translateY(-50px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
+
+/* --- PAGINAÇÃO (MULTI-PÁGINAS) --- */
+.pagination-bar {
+    height: 50px;
+    background-color: #fff;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    z-index: 100;
+}
+
+.pagination-bar button {
+    width: auto;
+    margin: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    background: #f1f2f6;
+    border: 1px solid #dcdde1;
+    color: #333;
+}
+
+.pagination-bar button:hover {
+    background: #dfe4ea;
+    transform: translateY(-1px);
+}
+
+#indicadorPagina {
+    font-weight: bold;
+    color: #2d3436;
+    font-size: 14px;
+    min-width: 100px;
+    text-align: center;
+}
+
+/* Ajuste Responsivo para não quebrar layout */
+@media (max-width: 768px) {
+    .main-content {
+        height: 100vh;
+        width: 100%;
+    }
+    .pagination-bar {
+        margin-top: 50px; /* Espaço para o botão do menu mobile */
+        flex-wrap: wrap;
+        height: auto;
+        padding: 10px;
+    }
+}
