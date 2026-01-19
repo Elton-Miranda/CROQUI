@@ -5,7 +5,6 @@ var modoLinha = null;
 var listaMateriaisManuais = []; 
 
 // --- VARIÁVEIS MULTI-PÁGINAS ---
-// Inicializa o array já com a primeira página vazia para não dar erro
 var paginas = [{ objects: [] }]; 
 var paginaAtual = 0; 
 
@@ -15,19 +14,15 @@ var propsParaSalvar = ['id_tipo', 'sub_tipo', 'valor_metragem', 'lockMovementX',
 // --- FUNÇÕES DE PAGINAÇÃO ---
 function salvarEstadoPaginaAtual() {
     var json = canvas.toJSON(propsParaSalvar);
-    // Filtra margens para não salvar no banco de dados (elas são visuais)
     json.objects = json.objects.filter(o => o.id_tipo !== 'margem_seguranca');
     paginas[paginaAtual] = json;
 }
 
 function carregarPagina(index) {
-    canvas.clear(); // Limpa tudo
+    canvas.clear(); 
     var dados = paginas[index];
     
-    // Carrega o desenho salvo
     canvas.loadFromJSON(dados, function() {
-        // --- O SEGREDO ESTÁ AQUI ---
-        // Assim que terminar de carregar, desenha as margens
         desenharMargensSeguranca();
         canvas.renderAll();
         atualizarIndicadorPagina();
@@ -44,7 +39,7 @@ function mudarPagina(direcao) {
 
 function adicionarPagina() {
     salvarEstadoPaginaAtual();
-    paginas.push({ objects: [] }); // Cria nova página em branco
+    paginas.push({ objects: [] }); 
     paginaAtual = paginas.length - 1;
     carregarPagina(paginaAtual);
 }
@@ -63,9 +58,7 @@ function atualizarIndicadorPagina() {
 
 // --- FUNÇÃO DE GUARDA (ÁREAS PROIBIDAS) ---
 function pontoEstaEmAreaProibida(x, y) {
-    // Topo (Cabeçalho)
     if (y < 50) return true;
-    // Canto Inferior Direito (Carimbo)
     var limiteX = canvas.width - 360;
     var limiteY = canvas.height - 200;
     if (x > limiteX && y > limiteY) return true;
@@ -74,21 +67,16 @@ function pontoEstaEmAreaProibida(x, y) {
 
 // --- DESENHO DAS MARGENS VISUAIS ---
 function desenharMargensSeguranca() {
-    // Remove margens antigas para não duplicar
     var objetos = canvas.getObjects();
     objetos.forEach(function(o) { if(o.id_tipo === 'margem_seguranca') canvas.remove(o); });
 
-    // Linha Topo
     var linhaTopo = new fabric.Line([0, 50, 1100, 50], { strokeDashArray: [5, 5], stroke: 'red', opacity: 0.3, selectable: false, evented: false, id_tipo: 'margem_seguranca' });
     var textoTopo = new fabric.Text("ÁREA DO CABEÇALHO (PÁG " + (paginaAtual+1) + ")", { left: 10, top: 10, fontSize: 10, fill: 'red', opacity: 0.5, selectable: false, evented: false, id_tipo: 'margem_seguranca' });
 
-    // Retângulo Rodapé
     var rectFooter = new fabric.Rect({ width: 340, height: 180, left: canvas.width - 360, top: canvas.height - 200, fill: 'rgba(255, 0, 0, 0.05)', stroke: 'red', strokeDashArray: [5, 5], opacity: 0.3, selectable: false, evented: false, id_tipo: 'margem_seguranca' });
     var textoFooter = new fabric.Text("ÁREA DO CARIMBO", { left: canvas.width - 350, top: canvas.height - 190, fontSize: 10, fill: 'red', opacity: 0.5, selectable: false, evented: false, id_tipo: 'margem_seguranca' });
 
     canvas.add(linhaTopo); canvas.add(textoTopo); canvas.add(rectFooter); canvas.add(textoFooter);
-    
-    // Envia para trás para não atrapalhar
     canvas.sendToBack(linhaTopo); canvas.sendToBack(textoTopo); canvas.sendToBack(rectFooter); canvas.sendToBack(textoFooter);
 }
 
@@ -98,7 +86,7 @@ function novoCroqui() {
         paginas = [{ objects: [] }];
         paginaAtual = 0;
         listaMateriaisManuais = [];
-        carregarPagina(0); // Isso vai limpar e desenhar as margens
+        carregarPagina(0); 
         resetFerramentas(); 
     }
 }
@@ -236,7 +224,7 @@ canvas.on('mouse:up', function(o){
     }
 });
 
-// --- OBJETOS ---
+// --- OBJETOS (CORRIGIDO) ---
 function addObservacao() {
     resetFerramentas();
     
@@ -247,37 +235,36 @@ function addObservacao() {
     }
 
     var textObj = new fabric.Textbox("Clique duas vezes para editar...\n(Arraste a lateral para alargar)", { 
-        width: 300,             // Largura inicial maior
-        fontSize: 16,           // Fonte um pouco maior
+        width: 300,             
+        fontSize: 16,           
         fontFamily: 'Roboto', 
-        fill: '#856404',        // Cor do Texto (Marrom)
-        backgroundColor: '#fff3cd', // Cor de Fundo (Amarelo Post-it)
-        borderColor: '#e0a800', // Cor da Borda
+        fill: '#856404',        
+        backgroundColor: '#fff3cd', 
+        borderColor: '#e0a800', 
         borderWidth: 1,
-        textAlign: 'left',      // Texto alinhado à esquerda
+        textAlign: 'left',      
         originX: 'center', 
         originY: 'center', 
-        splitByGrapheme: false, // Quebra por palavra inteira (não corta palavras no meio)
+        splitByGrapheme: false, 
         editable: true, 
         left: canvas.width/2, 
         top: canvas.height/2, 
-        padding: 15,            // Mais espaço interno
-        
-        // Configurações de Redimensionamento
-        hasControls: true,      // Mostra os quadradinhos de controle
-        minWidth: 100           // Largura mínima para não sumir
+        padding: 15,            
+        hasControls: true,      
+        minWidth: 100           
     });
 
     textObj.set('id_tipo', 'observacao_texto'); 
     canvas.add(textObj); 
     canvas.setActiveObject(textObj);
 }
+
 function addPoste(tipo, x, y) { var c = new fabric.Circle({ radius: 8, fill: '#047ffaff', left: 0, top: 0, originX: 'center', originY: 'center' }); var t = new fabric.Text(tipo, { fontSize: 20, fontWeight: 'bold', left: -15, top: -50, fontFamily: 'Roboto' }); var g = new fabric.Group([ c, t ], { left: x, top: y, originX: 'center', originY: 'center' }); g.set('id_tipo', 'poste'); g.set('sub_tipo', tipo); canvas.add(g); }
 function addCEO(existente, x, y) { if (existente) { var c = new fabric.Circle({ radius: 15, fill: '#2c3e50', stroke: '#2c3e50', originX: 'center', originY: 'center' }); var g = new fabric.Group([c], { left: x, top: y, originX: 'center', originY: 'center' }); g.set('id_tipo', 'ceo_existente'); canvas.add(g); } else { var c = new fabric.Circle({ radius: 15, fill: 'white', stroke: '#2c3e50', strokeWidth: 3, originX: 'center', originY: 'center' }); var g = new fabric.Group([c], { left: x, top: y, originX: 'center', originY: 'center' }); g.set('id_tipo', 'ceo_nova'); canvas.add(g); } }
 function addCS(x, y) { let numero = prompt("Número da CS:", ""); if (numero !== null) { let label = (numero === "0" || numero === "00") ? "CS S/N" : "CS " + numero.substring(0, 3); var r = new fabric.Rect({ width: 60, height: 35, fill: '#bdc3c7', stroke: '#34495e', strokeWidth: 2, rx: 2, ry: 2, originX: 'center', originY: 'center' }); var t = new fabric.Text(label, { fontSize: 14, fill: '#2c3e50', fontWeight: 'bold', fontFamily: 'Roboto', originX: 'center', originY: 'center' }); var g = new fabric.Group([r, t], { left: x, top: y, originX: 'center', originY: 'center' }); g.set('id_tipo', 'caixa_subterranea'); canvas.add(g); } }
 function addSubidaLateral(x, y) { var p = new fabric.Polyline([ {x: 0, y: 0}, {x: 20, y: 0}, {x: 30, y: -30}, {x: 40, y: 30}, {x: 50, y: 0}, {x: 70, y: 0} ], { fill: 'transparent', stroke: 'red', strokeWidth: 3, left: x, top: y, originX: 'center', originY: 'center' }); canvas.add(p); }
 function addCTOP(cor, range, x, y) { var hex = cor.startsWith('#') ? cor : '#' + cor; var r = new fabric.Rect({ width: 35, height: 35, fill: hex, stroke: '#333', strokeWidth: 1, originX: 'center', originY: 'center' }); var t = new fabric.Text(range, { fontSize: 12, backgroundColor: 'rgba(255,255,255,0.9)', top: 20, fontFamily: 'Roboto', originX: 'center' }); var g = new fabric.Group([r, t], { left: x, top: y, originX: 'center', originY: 'center' }); g.set('id_tipo', 'ctop'); g.set('sub_tipo', range); canvas.add(g); }
-function addMedida(tipo) { resetFerramentas(); if (pontoEstaEmAreaProibida(canvas.width/2, canvas.height/2)) return; let label = "", corFundo = ""; if (tipo === 'instalado') { label = "Inst."; corFundo = "#ff2600"; } if (tipo === 'retirado') { label = "Ret."; corFundo = "#a9dfbf"; } if (tipo === 'existente') { label = "Exist."; corFundo = "#ecf0f1"; } if (tipo === 'cordoalha') { label = "Cordoalha"; corFundo = "#aed6f1"; } let metros = prompt("Metragem " + label + " (m):", "40"); if (metros) { var t = new fabric.Text(label + ": " + metros + "m", { fontSize: 16, fontWeight: 'bold', backgroundColor: corFundo, left: canvas.width/2, top: canvas.height/2, padding: 5, originX: 'center', originY: 'center' }); t.set('id_tipo', 'medida'); t.set('sub_tipo', tipo); t.set('valor_metragem', parseFloat(metros)); canvas.add(t); } }
+function addMedida(tipo) { resetFerramentas(); if (pontoEstaEmAreaProibida(canvas.width/2, canvas.height/2)) return; let label = "", corFundo = ""; if (tipo === 'instalado') { label = "Rede Nova"; corFundo = "#FFD700"; } if (tipo === 'retirado') { label = "Rede Ret."; corFundo = "#a9dfbf"; } if (tipo === 'existente') { label = "Rede Exist."; corFundo = "#ecf0f1"; } if (tipo === 'cordoalha') { label = "Cordoalha"; corFundo = "#aed6f1"; } let metros = prompt("Metragem " + label + " (m):", "40"); if (metros) { var t = new fabric.Text(label + ": " + metros + "m", { fontSize: 16, fontWeight: 'bold', backgroundColor: corFundo, left: canvas.width/2, top: canvas.height/2, padding: 5, originX: 'center', originY: 'center' }); t.set('id_tipo', 'medida'); t.set('sub_tipo', tipo); t.set('valor_metragem', parseFloat(metros)); canvas.add(t); } }
 function addNomeRua() { resetFerramentas(); let nome = prompt("Nome da Rua:", "Rua Exemplo"); if (nome) { var t = new fabric.Text(nome, { fontSize: 24, fontFamily: 'Roboto', fill: '#2980b9', fontWeight: 'bold', left: canvas.width/2, top: 80, originX: 'center' }); canvas.add(t); } }
 function addEtiquetaCabo() { resetFerramentas(); if (pontoEstaEmAreaProibida(canvas.width/2, canvas.height/2)) return; var txt = document.getElementById('tipoCabo').value + " " + document.getElementById('bitolaCabo').value; var t = new fabric.Text(txt, { fontSize: 14, backgroundColor: '#fff3cd', left: canvas.width/2, top: canvas.height/2, padding: 6, stroke: '#333', strokeWidth: 0.2, originX: 'center', originY: 'center' }); canvas.add(t); }
 function atualizarBitolas() { var tipo = document.getElementById("tipoCabo").value; var selectBitola = document.getElementById("bitolaCabo"); selectBitola.innerHTML = ""; var opcoes = (tipo === "DROP") ? ["01", "04"] : ["12", "24", "36", "48", "72", "144"]; opcoes.forEach(v => { var opt = document.createElement("option"); opt.value = v; opt.innerHTML = v + " FO"; selectBitola.appendChild(opt); }); }
@@ -354,7 +341,9 @@ function confirmarSalvar() {
 function gerarExcel(dados, info) {
     let linhas = [
         { Item: "PROJETO", Quantidade: info.idProjeto, Unidade: "" },
+        { Item: "TIPO", Quantidade: info.tipoObra, Unidade: "" },
         { Item: "TÉCNICO", Quantidade: info.nome + " " + info.sobrenome, Unidade: "" },
+        { Item: "REGISTRO (RE)", Quantidade: info.re, Unidade: "" },
         { Item: "DATA", Quantidade: info.hoje, Unidade: "" },
         { Item: "", Quantidade: "", Unidade: "" },
         { Item: "--- TOTAIS ACUMULADOS ---", Quantidade: "", Unidade: "" },
