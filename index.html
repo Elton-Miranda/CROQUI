@@ -2,247 +2,153 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CROQUI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Croqui Híbrido Pro</title>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><path d=%22M50 10 L20 80 M50 10 L80 80%22 stroke=%22%23660099%22 stroke-width=%228%22 stroke-linecap=%22round%22/><circle cx=%2250%22 cy=%2210%22 r=%226%22 fill=%22%2300ffff%22/><path d=%22M20 85 Q50 100 80 85%22 stroke=%22%2300ffff%22 stroke-width=%224%22 stroke-dasharray=%2210 5%22 fill=%22none%22/></svg>">
-    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><path d=%22M50 10 L20 80 M50 10 L80 80%22 stroke=%22%23660099%22 stroke-width=%228%22 stroke-linecap=%22round%22/><circle cx=%2250%22 cy=%2210%22 r=%226%22 fill=%22%2300ffff%22/></svg>">
     <link rel="stylesheet" href="css/style.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<div id="modalAjuda" class="modal">
-    <div class="modal-content manual-content">
-        <span class="close" onclick="fecharModais()">&times;</span>
-        <h2 class="manual-title">📖 Manual do Usuário</h2>
+    <button id="btnToggleUI" onclick="toggleUI()">👁️</button>
+
+    <div id="canvas-container">
+        <canvas id="c"></canvas>
+    </div>
+
+    <div id="ui-container" class="glass-panel">
         
-        <div class="manual-scroll">
+        <div class="ui-header">
+            <h2 style="margin:0; font-size:14px; color:#660099;">CROQUI <span style="font-size:9px; color:#555;">APP</span></h2>
+            <div class="ui-controls">
+                <button onclick="novoCroqui()" class="btn-mini" style="background:#e74c3c;">🗑️ Limpar</button>
+                <button onclick="abrirModalSalvar()" class="btn-mini" style="background:#27ae60;">💾 Salvar</button>
+            </div>
+        </div>
+
+        <div class="scroll-container">
             
-            <div class="manual-section">
-                <h3>1. Montando o Cenário (Arrastar)</h3>
-                <p>Para colocar Postes, Caixas ou CTOPs:</p>
-                <ul>
-                    <li>Clique no botão do item na barra lateral esquerda.</li>
-                    <li>Segure o clique e <b>arraste</b> até a posição desejada na folha branca.</li>
-                    <li>Solte para fixar.</li>
-                </ul>
+            <div class="tool-section">
+                <span class="section-title">CABOS</span>
+                <div class="btn-grid">
+                    <button id="btnInstall" class="btn-tool btn-red" onclick="ativarModoLinha('instalar')">Novo</button>
+                    <button id="btnRet" class="btn-tool btn-green" onclick="ativarModoLinha('retirar')">Retirar</button>
+                    <button id="btnCord" class="btn-tool btn-blue" onclick="ativarModoLinha('cordoalha')">Cordoalha</button>
+                    </div>
             </div>
 
-            <div class="manual-section">
-                <h3>2. Passando Cabos (Ímã)</h3>
-                <p>O sistema ajuda a desenhar reto e calcula a metragem automaticamente:</p>
-                <ul>
-                    <li>Escolha <b>Instalar</b> (Vermelho), <b>Retirar</b> (Verde), <b>Existente</b> (Preto) ou <b>Cordoalha</b> (Azul).</li>
-                    <li>Clique no meio de um poste (o mouse é atraído para o centro).</li>
-                    <li>Arraste até o próximo poste e solte.</li>
-                    <li>Para parar de desenhar, clique em <b>✋ Parar (ESC)</b>.</li>
-                </ul>
+            <div class="tool-section">
+                <span class="section-title">ETIQUETA</span>
+                <div style="display:flex; flex-direction:column;">
+                    <select id="tipoCabo" onchange="atualizarBitolas()" class="ui-select">
+                        <option value="AS">CFOA AS</option>
+                        <option value="DROP">DROP</option>
+                    </select>
+                    <div style="display:flex; gap:5px;">
+                        <select id="bitolaCabo" class="ui-select" style="flex:1;"></select>
+                        <button class="btn-tool" onclick="addEtiquetaCabo()" style="flex:1; background:#eee;">Inserir</button>
+                    </div>
+                </div>
             </div>
 
-            <div class="manual-section">
-                <h3>3. Notas e Observações</h3>
-                <p>O botão <b>📝 Nota</b> cria um bloco de texto para anotações visuais no croqui.</p>
-                <ul>
-                    <li>Use para indicar detalhes como "Poste Quebrado" ou "Árvore na rede".</li>
-                    <li><b>Atenção:</b> O que for escrito aqui NÃO é contabilizado na planilha. Materiais extras devem ser inseridos na hora de salvar.</li>
-                </ul>
+            <div class="tool-section">
+                <span class="section-title">INFRA</span>
+                <div class="btn-grid">
+                    <button class="btn-tool" onclick="addPoste('XC')">Poste XC</button>
+                    <button class="btn-tool" onclick="addPoste('XM')">Poste XM</button>
+                    <button class="btn-tool" onclick="addSubidaLateral()">Subida</button>
+                    <button class="btn-tool" onclick="addCS()">Cx. Sub</button>
+                </div>
             </div>
 
-            <div class="manual-section">
-                <h3>4. Finalizando e Carimbo</h3>
-                <p>Ao clicar em <b>💾 SALVAR TUDO</b>, uma janela se abrirá para:</p>
-                <ul>
-                    <li>Preencher seus dados (Nome, RE) e dados da Obra (AT, Ocorrência).</li>
-                    <li><b>Adicionar Materiais Extras:</b> Uma lista manual onde você insere itens como Alças, Fusões, etc.</li>
-                </ul>
-                <p>O sistema irá gerar:</p>
-                <ol>
-                    <li>Uma imagem PNG com o <b>Carimbo Completo</b> (Dados do Técnico + Resumo de Cabos).</li>
-                    <li>Uma planilha Excel detalhada com todos os materiais.</li>
-                </ol>
+            <div class="tool-section">
+                <span class="section-title">CAIXAS</span>
+                <div class="btn-grid">
+                    <button class="btn-tool" onclick="addCEO(true)">CEO Ex.</button>
+                    <button class="btn-tool" onclick="addCEO(false)">CEO Nova</button>
+                </div>
             </div>
 
-            <div class="manual-footer">
-                <p>⌨️ <b>Atalhos:</b> <code>DELETE</code> apaga item | <code>ESC</code> cancela ferramenta.</p>
+            <div class="tool-section">
+                <span class="section-title">CTO</span>
+                <div class="btn-grid ctop-row">
+                    <button class="btn-color" style="background:#690169;" onclick="addCTOP('#690169','1:8')">1:8</button>
+                    <button class="btn-color" style="background:#FF0000;" onclick="addCTOP('#FF0000','60/40')">60/40</button>
+                    <button class="btn-color" style="background:#0000FF;" onclick="addCTOP('#0000FF','70/30')">70/30</button>
+                    <button class="btn-color" style="background:#dedee0; color:#333;" onclick="addCTOP('#dedee0','80/20')">80/20</button>
+                    <button class="btn-color" style="background:#FFFF00; color:#333;" onclick="addCTOP('#FFFF00','85/15')">85/15</button>
+                    <button class="btn-color" style="background:#008000;" onclick="addCTOP('#008000','90/10')">90/10</button>
+                </div>
             </div>
-        </div>
-        
-        <button class="btn-salvar" style="width: 100%; margin-top: 15px;" onclick="fecharModais()">LI E ENTENDI, VAMOS LÁ!</button>
-    </div>
-</div>
 
-<div id="modalSalvar" class="modal">
-    <div class="modal-content" style="max-width: 450px; max-height: 90vh; overflow-y: auto;">
-        <span class="close" onclick="fecharModais()">&times;</span>
-        <h2 class="modal-title" style="border-bottom: 2px solid #660099; color: #660099;">Finalizar Croqui</h2>
-        
-        <label class="form-label" style="color: #d35400;">Número da Ocorrência (Opcional)</label>
-        <input type="text" id="inputOcorrencia" placeholder="Vazio = 'Levantamento de Obra'" style="border: 1px solid #d35400; background: #fffdf0;">
-
-        <div style="background: #f0f4f8; padding: 10px; border-radius: 8px; margin: 10px 0; border: 1px solid #d9e2ec;">
-            <div style="display:flex; gap:5px;">
-                <div style="flex:1"><label class="form-label">Nome</label><input type="text" id="inputNome"></div>
-                <div style="flex:1"><label class="form-label">Sobrenome</label><input type="text" id="inputSobrenome"></div>
+            <div class="tool-section">
+                <span class="section-title">NOTAS</span>
+                <div class="btn-grid">
+                    <button class="btn-tool" onclick="addObservacao()">📝 Nota</button>
+                    <button class="btn-tool" onclick="addNomeRua()">🅰️ Rua</button>
+                    <button class="btn-tool" onclick="ativarModoLinha('seta')">↗️ Seta</button>
+                </div>
             </div>
-            <label class="form-label">RE (Registro)</label> <input type="text" id="inputRE">
-        </div>
 
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <div style="flex:1"><label class="form-label">AT (2 Letras)</label><input type="text" id="inputAT" maxlength="2" style="text-transform: uppercase;"></div>
-            <div style="flex:1"><label class="form-label">Cabo</label><input type="number" id="inputCabo"></div>
-            <div style="flex:1"><label class="form-label">Primária</label><input type="number" id="inputPrimaria" max="144"></div>
-        </div>
+            <div class="tool-section">
+                <span class="section-title">MEDIDAS</span>
+                <div class="btn-grid">
+                    <button class="btn-tool" onclick="addMedida('instalado')">Inst.</button>
+                    <button class="btn-tool" onclick="addMedida('retirado')">Ret.</button>
+                    <button class="btn-tool" onclick="addMedida('cordoalha')">Cord.</button>
+                </div>
+            </div>
 
-        <div style="border-top: 2px dashed #ccc; padding-top: 10px; margin-top: 10px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #333;">📋 Inserir Materiais Extras (Manual)</h3>
+            <div class="tool-section">
+                <span class="section-title">EXTRAS</span>
+                <div class="btn-grid">
+                    <button class="btn-tool" onclick="deleteSelected()" style="color:red;">Apagar Item</button>
+                    <div style="display:flex; gap:2px;">
+                        <button class="btn-tool" onclick="mudarPagina(-1)">◀</button>
+                        <button class="btn-tool" onclick="mudarPagina(1)">▶</button>
+                    </div>
+                    <button class="btn-tool" onclick="adicionarPagina()">+ Pág</button>
+                </div>
+            </div>
             
-            <div style="display: flex; gap: 5px; align-items: flex-end;">
-                <div style="flex: 2;">
-                    <label class="form-label">Nome do Item</label>
-                    <input type="text" id="manualItem" placeholder="Ex: Fusão, Alça...">
-                </div>
-                <div style="flex: 1;">
-                    <label class="form-label">Qtd</label>
-                    <input type="number" id="manualQtd" placeholder="0">
-                </div>
-                <button onclick="addMaterialManual()" style="width: auto; background: #27ae60; color: white; height: 36px; margin-bottom: 6px;">+</button>
-            </div>
-
-            <ul id="listaMateriaisVisivel" style="background: #eee; min-height: 50px; padding: 10px; list-style: none; border-radius: 4px; margin-top: 5px; font-size: 12px; color: #333;">
-                <li style="color: #999; text-align: center;">Nenhum item extra adicionado.</li>
-            </ul>
-        </div>
-
-        <button class="btn-salvar" style="width: 100%; margin-top: 20px;" onclick="confirmarSalvar()">GERAR ARQUIVOS E CARIMBO</button>
-    </div>
-</div>
-
-<div class="container">
-    <div class="sidebar">
-        
-        <div class="app-header">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 5px;">
-                <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M50 10 L20 80 M50 10 L80 80" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
-                    <circle cx="50" cy="10" r="6" fill="#00ffff"/>
-                    <path d="M20 85 Q50 100 80 85" stroke="#00ffff" stroke-width="4" stroke-dasharray="10 5"/>
-                </svg>
-                <div style="text-align: left;">
-                    <h2 style="margin:0; line-height: 1;">CROQUI</h2>
-                    <span style="font-size: 9px; letter-spacing: 1px;">beta version</span>
-                </div>
-            </div>
-            <button class="btn-help-header" onclick="abrirAjuda()">📘 MANUAL DO USUÁRIO</button>
-        </div>
-
-        <div class="tool-group">
-            <h3>🔌 Desenho de Cabos</h3>
-            <div style="display: flex; gap: 4px;">
-                <button id="btnInstall" class="btn-cabo-novo" onclick="ativarModoLinha('instalar')">Instalar</button>
-                <button id="btnRet" class="btn-cabo-ret" onclick="ativarModoLinha('retirar')">Retirar</button>
-            </div>
-            <button id="btnExist" class="btn-cabo-exist" onclick="ativarModoLinha('existente')">Existente</button>
-            <button id="btnCord" class="btn-cordoalha" onclick="ativarModoLinha('cordoalha')">Cordoalha (Guia)</button>
-            <button id="btnPare" class="btn-parar" onclick="resetFerramentas()">✋ Parar (ESC)</button>
-        </div>
-
-        <div class="tool-group">
-            <h3>🏗️ Infraestrutura (Arraste)</h3>
-            <button draggable="true" ondragstart="drag(event, 'posteXC')" class="btn-infra"><span class="icon">🔵</span>Poste Concreto</button>
-            <button draggable="true" ondragstart="drag(event, 'posteXM')" class="btn-infra"><span class="icon">🔵</span>Poste Madeira</button>
-            <button draggable="true" ondragstart="drag(event, 'subidaLateral')" class="btn-infra" style="border-left: 3px solid #e74c3c;"><span class="icon">📈</span>Subida Lateral</button>
-        </div>
-
-        <div class="tool-group">
-            <h3>📦 Caixas e CS (Arraste)</h3>
-            <div style="display: flex; gap: 4px;">
-                <button draggable="true" ondragstart="drag(event, 'ceoExist')" class="btn-cx-exist">⚫ Exist.</button>
-                <button draggable="true" ondragstart="drag(event, 'ceoNova')" class="btn-cx-nova">⚪ Nova</button>
-            </div>
-            <button draggable="true" ondragstart="drag(event, 'cs')" class="btn-cs"><span class="icon">⬛</span>Caixa Subt. (CS)</button>
-        </div>
-
-        <div class="tool-group">
-            <h3>🎨 CTOP (Arraste)</h3>
-            <div class="ctop-grid">
-                <button draggable="true" ondragstart="drag(event, 'ctop-EE82EE-01:08')" class="ctop-btn" style="background:#EE82EE;">01:08</button>
-                <button draggable="true" ondragstart="drag(event, 'ctop-FF0000-09:16')" class="ctop-btn" style="background:#FF0000; color:white;">09:16</button>
-                <button draggable="true" ondragstart="drag(event, 'ctop-0000FF-17:24')" class="ctop-btn" style="background:#0000FF; color:white;">17:24</button>
-                <button draggable="true" ondragstart="drag(event, 'ctop-FFFFFF-25:32')" class="ctop-btn" style="background:#FFFFFF;">25:32</button>
-                <button draggable="true" ondragstart="drag(event, 'ctop-FFFF00-33:40')" class="ctop-btn" style="background:#FFFF00;">33:40</button>
-                <button draggable="true" ondragstart="drag(event, 'ctop-008000-41:48')" class="ctop-btn" style="background:#008000; color:white;">41:48</button>
-                <button draggable="true" ondragstart="drag(event, 'ctop-008000-49:56')" class="ctop-btn" style="background:#008000; color:white;">49:56</button>
-                <button draggable="true" ondragstart="drag(event, 'ctop-008000-57:64')" class="ctop-btn" style="background:#008000; color:white;">57:64</button>
-            </div>
-        </div>
-
-        <div class="tool-group">
-            <h3>📍 Identificação / Notas</h3>
-            <div class="btn-row">
-                <button class="btn-action" onclick="addNomeRua()">🅰️ Rua</button>
-                <button class="btn-action" onclick="addObservacao()">📝 Nota</button>
-                <button id="btnArrow" class="btn-seta" onclick="ativarModoLinha('seta')">↗️ Seta</button>
-            </div>
-        </div>
-
-        <div class="tool-group">
-            <h3>📏 Medições</h3>
-            <div style="display: flex; gap: 4px;">
-                <button class="btn-medida" onclick="addMedida('instalado')">Instalado</button>
-                <button class="btn-medida" onclick="addMedida('retirado')" style="border-color:#27ae60; color:#27ae60;">Retirado</button>
-            </div>
-            <div style="display: flex; gap: 4px;">
-                <button class="btn-medida" onclick="addMedida('existente')" style="border-color:#555; color:#555;">Existente</button>
-                <button class="btn-medida" onclick="addMedida('cordoalha')" style="border-color:#2980b9; color:#2980b9;">Cordoalha</button>
-            </div>
-        </div>
-
-        <div class="tool-group">
-            <h3>🏷️ Tipo de Cabo</h3>
-            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                <select id="tipoCabo" onchange="atualizarBitolas()" style="width: 100%;"><option>CFOA SM AS</option><option>DROP</option></select>
-                <select id="bitolaCabo" style="flex: 1;"></select>
-                <button onclick="addEtiquetaCabo()" class="btn-action" style="background: #ecf0f1; width: auto; flex: 1;">Inserir</button>
-            </div>
-        </div>
-
-        <div style="margin-top: auto; padding-top: 10px;">
-     <button class="btn-action" onclick="deleteSelected()" style="background-color: #c0392b; color: white; justify-content: center;">🗑️ Apagar Seleção</button>
-     <button class="btn-action" onclick="novoCroqui()" style="background-color: #3498db; color: white; justify-content: center;">📄 NOVO CROQUI</button>
-     <button class="btn-salvar" onclick="abrirModalSalvar()" style="justify-content: center;">💾 SALVAR TUDO</button>
-</div>
+            <div style="height: 50px;"></div> </div>
     </div>
 
-<div class="main-content" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-        
-        <div class="pagination-bar">
-            <button onclick="mudarPagina(-1)">◀ Anterior</button>
-            <span id="indicadorPagina">Página 1 de 1</span>
-            <button onclick="mudarPagina(1)">Próxima ▶</button>
-            <div style="width: 1px; height: 20px; background: #ccc; margin: 0 10px;"></div>
-            <button onclick="adicionarPagina()" style="background: #6c5ce7; color: white;">+ Nova Pág.</button>
-            <button onclick="removerPaginaAtual()" style="background: #c0392b; color: white;">✖ Remover</button>
-        </div>
-
-        <div class="canvas-area" id="dropZone">
-            <div class="canvas-wrapper">
-                <canvas id="c" width="1100" height="700"></canvas>
+    <div id="modalSalvar" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="fecharModais()">&times;</span>
+            <h3>Salvar Projeto</h3>
+            <div class="form-group">
+                <input type="text" id="inputNome" placeholder="Nome Técnico">
+                <input type="text" id="inputSobrenome" placeholder="Sobrenome">
             </div>
+            <div class="form-group">
+                <input type="text" id="inputRE" placeholder="RE">
+                <input type="text" id="inputAT" placeholder="AT (Área)">
+            </div>
+            <div class="form-group">
+                <input type="number" id="inputCabo" placeholder="Cabo">
+                <input type="number" id="inputPrimaria" placeholder="Primária">
+            </div>
+            <input type="text" id="inputOcorrencia" placeholder="Ocorrência (Opcional)" style="width:100%; margin-top:5px;">
+            <hr>
+            <h4>Materiais Extras</h4>
+            <div class="form-group">
+                <input type="text" id="manualItem" placeholder="Item" style="flex:2">
+                <input type="number" id="manualQtd" placeholder="Qtd" style="flex:1">
+                <button onclick="addMaterialManual()" style="background:#660099; color:white;">+</button>
+            </div>
+            <ul id="listaMateriaisVisivel"></ul>
+            <button class="btn-full" onclick="confirmarSalvar()">BAIXAR ARQUIVOS</button>
         </div>
     </div>
-</div>
-    
-    <div class="canvas-area" id="dropZone">
-        <div class="canvas-wrapper">
-            <canvas id="c" width="1100" height="700"></canvas>
-        </div>
-    </div>
-</div>
 
-<script src="js/app.js"></script>
+    <div id="page-indicator">Pág 1</div>
+
+    <script src="js/app.js"></script>
 </body>
 </html>
