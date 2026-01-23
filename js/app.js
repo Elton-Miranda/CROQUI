@@ -1,4 +1,4 @@
-// --- CONFIGURAÇÃO INICIAL ---
+// --- CONFIGURAÇÃO INICIAL E VARIÁVEIS GLOBAIS ---
 var canvas = new fabric.Canvas('c', { selection: true, preserveObjectStacking: true });
 var line, arrowHead;
 var isDrawingLine = false;
@@ -8,7 +8,7 @@ var paginas = [{ objects: [] }];
 var paginaAtual = 0; 
 var propsParaSalvar = ['id_tipo', 'sub_tipo', 'valor_metragem', 'lockMovementX', 'lockMovementY', 'selectable', 'evented', 'strokeDashArray', 'stroke', 'strokeWidth', 'fill'];
 
-// --- AJUSTE DE TELA ---
+// --- AJUSTE DE TELA (INTERFACE DO USUÁRIO) ---
 function resizeCanvas() {
     canvas.setWidth(window.innerWidth);
     canvas.setHeight(window.innerHeight);
@@ -58,7 +58,7 @@ function adicionarPagina() {
     paginas.push({ objects: [] }); paginaAtual = paginas.length - 1; carregarPagina(paginaAtual);
 }
 
-// --- MARGENS ---
+// --- MARGENS (VISUALIZAÇÃO NA TELA) ---
 function pontoEstaEmAreaProibida(x, y) {
     if (y < 60) return true; 
     var w = 340, h = 180;
@@ -103,7 +103,6 @@ function getMagnetPoint(pointer) {
 canvas.on('mouse:down', function(o){
     var p = canvas.getPointer(o.e);
     if (modoLinha && pontoEstaEmAreaProibida(p.x, p.y)) { alert("🚫 Área proibida."); isDrawingLine = false; return; }
-    
     if (!modoLinha && o.e.ctrlKey && o.target) {
         var obj = o.target; 
         obj.clone(function(c) {
@@ -112,25 +111,18 @@ canvas.on('mouse:down', function(o){
             canvas.add(c); canvas.setActiveObject(c); 
         }); return; 
     }
-
     if (!modoLinha) return;
     isDrawingLine = true;
     var sx, sy;
     if (modoLinha !== 'seta') { var s = getMagnetPoint(p); sx = s.x; sy = s.y; } else { sx = p.x; sy = p.y; }
-    
     var c, w=4, d;
     if (modoLinha === 'instalar') c = '#e74c3c'; 
     else if (modoLinha === 'retirar') c = '#2ecc71'; 
     else if (modoLinha === 'cordoalha') { c = '#3498db'; w=2; d=[10, 5]; }
     else if (modoLinha === 'seta') { c = '#c0392b'; w=3; }
-    
     line = new fabric.Line([sx, sy, sx, sy], { strokeWidth: w, stroke: c, strokeDashArray: d, originX: 'center', originY: 'center', selectable: false, evented: false });
     canvas.add(line);
-    
-    if (modoLinha === 'seta') { 
-        arrowHead = new fabric.Triangle({ width: 15, height: 15, fill: c, left: sx, top: sy, originX: 'center', originY: 'center', selectable: false, evented: false, angle: 90 }); 
-        canvas.add(arrowHead); 
-    }
+    if (modoLinha === 'seta') { arrowHead = new fabric.Triangle({ width: 15, height: 15, fill: c, left: sx, top: sy, originX: 'center', originY: 'center', selectable: false, evented: false, angle: 90 }); canvas.add(arrowHead); }
 });
 
 canvas.on('mouse:move', function(o){
@@ -165,7 +157,6 @@ function atualizarBitolas() {
     var opcoes = (tipo === "DROP") ? ["01", "04"] : ["06", "12", "24", "36", "48", "72", "144"];
     opcoes.forEach(v => { var opt = document.createElement("option"); opt.value = v; opt.innerHTML = v + " FO"; select.appendChild(opt); });
 }
-
 function addEtiquetaCabo() {
     resetFerramentas(); var c = getCenter();
     if (pontoEstaEmAreaProibida(c.x, c.y)) return;
@@ -188,11 +179,11 @@ function deleteSelected() { var a = canvas.getActiveObjects(); if (a.length) { c
 function novoCroqui() { if(confirm("Apagar tudo?")) { canvas.clear(); paginas = [{ objects: [] }]; paginaAtual = 0; listaMateriaisManuais = []; carregarPagina(0); } }
 document.addEventListener('keydown', function(e) { if(e.key === "Delete") deleteSelected(); if(e.key === "Escape") resetFerramentas(); });
 
-// --- SALVAMENTO ---
+// --- SALVAMENTO E EXPORTAÇÃO (FORÇAR PAISAGEM) ---
 function abrirModalSalvar() { document.getElementById('modalSalvar').style.display = 'flex'; renderListaMateriais(); }
 function fecharModais() { document.getElementById('modalSalvar').style.display = 'none'; }
 function addMaterialManual() { let n = document.getElementById('manualItem').value; let q = document.getElementById('manualQtd').value; if (!n || !q) { alert("Preencha Nome e Qtd"); return; } listaMateriaisManuais.push({ item: n, qtd: q }); document.getElementById('manualItem').value = ""; document.getElementById('manualQtd').value = ""; document.getElementById('manualItem').focus(); renderListaMateriais(); }
-function renderListaMateriais() { let ul = document.getElementById('listaMateriaisVisivel'); ul.innerHTML = ""; if (listaMateriaisManuais.length === 0) { ul.innerHTML = "<li style='color:#999; text-align:center;'>Nenhum item extra.</li>"; return; } listaMateriaisManuais.forEach((m, i) => { let li = document.createElement("li"); li.innerHTML = `<span><b>${m.qtd}</b> x ${m.item}</span> <button onclick="removerMaterialManual(${i})" style="background:#c0392b; color:white; border:none; border-radius:4px;">X</button>`; ul.appendChild(li); }); }
+function renderListaMateriais() { let ul = document.getElementById('listaMateriaisVisivel'); ul.innerHTML = ""; if (listaMateriaisManuais.length === 0) { ul.innerHTML = "<li style='color:#999; text-align:center;'>Nenhum item extra.</li>"; return; } listaMateriaisManuais.forEach((m, i) => { let li = document.createElement("li"); li.innerHTML = `<span><b>${m.qtd}</b> x ${m.item}</span> <button onclick="removerMaterialManual(${i})" style="background:#c0392b; color:white; border:none; border-radius:4px; cursor:pointer;">X</button>`; ul.appendChild(li); }); }
 function removerMaterialManual(i) { listaMateriaisManuais.splice(i, 1); renderListaMateriais(); }
 
 function confirmarSalvar() {
@@ -205,42 +196,57 @@ function confirmarSalvar() {
     listaMateriaisManuais.forEach(m => { totais.itensExtras.push({ qtd: m.qtd, item: m.item }); });
     let pOriginal = paginaAtual; let idx = 0;
 
+    // --- CONFIGURAÇÃO DE EXPORTAÇÃO PAISAGEM ---
+    var originalWidth = canvas.width; var originalHeight = canvas.height;
+    // Força Resolução 1280x720 para a exportação
+    var exportWidth = 1280; var exportHeight = 720;
+
     function processar() {
         if (idx < paginas.length) {
-            canvas.clear(); canvas.loadFromJSON(paginas[idx], function() {
+            canvas.clear();
+            // Muda temporariamente o tamanho do canvas para HD Paisagem
+            canvas.setWidth(exportWidth); canvas.setHeight(exportHeight);
+            
+            canvas.loadFromJSON(paginas[idx], function() {
                 canvas.getObjects().forEach(o => { if (o.id_tipo === 'medida') { if (o.sub_tipo === 'instalado') totais.redeInstalada += o.valor_metragem; if (o.sub_tipo === 'retirado') totais.redeRetirada += o.valor_metragem; if (o.sub_tipo === 'cordoalha') totais.cordoalha += o.valor_metragem; } });
                 canvas.getObjects().forEach(o => { if(o.id_tipo === 'margem_seguranca') canvas.remove(o); });
 
-                // AUTO-FIT CENTRALIZADO
+                // AUTO-FIT CENTRALIZADO NA FOLHA 1280x720
                 var all = canvas.getObjects();
                 if(all.length > 0) {
                     var g = new fabric.Group(all);
-                    var scale = Math.min((canvas.width - 60) / g.width, (canvas.height - 300) / g.height);
+                    // Área útil: 1280 (L) x 720 (A) - 60 (Topo) - 200 (Baixo)
+                    var topLimit = 60; var bottomLimit = exportHeight - 200;
+                    var availableHeight = bottomLimit - topLimit;
+                    
+                    var scale = Math.min((exportWidth - 60) / g.width, (availableHeight - 40) / g.height);
                     if(scale > 1.5) scale = 1.5; if(scale < 0.5) scale = 0.5;
                     g.scale(scale);
                     
-                    var topLimit = 60; var bottomLimit = canvas.height - 200;
-                    g.set({ left: canvas.width / 2, top: (topLimit + bottomLimit) / 2, originX: 'center', originY: 'center' });
+                    g.set({ left: exportWidth / 2, top: (topLimit + bottomLimit) / 2, originX: 'center', originY: 'center' });
                     g.setCoords(); canvas.add(g); g.toActiveSelection(); canvas.discardActiveObject();
                 }
 
-                var bw = 340, bh = 180, sx = canvas.width - bw - 20, sy = canvas.height - bh - 20;
-                var topo = new fabric.Rect({ width: canvas.width, height: 60, fill: '#3a0057', left: 0, top: 0, selectable: false });
+                var bw = 340, bh = 180, sx = exportWidth - bw - 20, sy = exportHeight - bh - 20;
+                var topo = new fabric.Rect({ width: exportWidth, height: 60, fill: '#3a0057', left: 0, top: 0, selectable: false });
                 var txtTopo = new fabric.Text(`PROJETO: ${idProj} | PÁG ${idx+1}/${paginas.length} | ${txtOc} | TÉC: ${nome.toUpperCase()} | DATA: ${hoje}`, { fontSize: 16, fill: 'white', fontWeight: 'bold', fontFamily: 'Roboto', left: 20, top: 20, selectable: false });
                 var res = new fabric.Rect({ width: bw, height: bh, fill: 'white', stroke: '#660099', strokeWidth: 2, rx: 5, ry: 5, left: sx, top: sy, selectable: false });
                 var txtRes = new fabric.Text(`RESUMO (ACUMULADO)\nInstalado: ${totais.redeInstalada}m\nRetirado:  ${totais.redeRetirada}m`, { fontSize: 14, fill: '#333', fontFamily: 'Courier New', left: sx + 10, top: sy + 10, selectable: false });
                 canvas.add(topo, txtTopo, res, txtRes);
 
-                var url = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1.5 });
+                var url = canvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 });
                 var a = document.createElement('a'); a.download = `${idProj}_Pg${idx+1}.png`; a.href = url; document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 idx++; setTimeout(processar, 1000);
             });
         } else {
             gerarExcel(totais, { nome, sobrenome, re, at, cabo: caboPad, primaria: primPad, idProjeto: idProj, hoje, tipoObra: txtOc });
+            
+            // Restaura tamanho original da tela do usuário
+            canvas.setWidth(originalWidth); canvas.setHeight(originalHeight);
             paginaAtual = pOriginal; carregarPagina(pOriginal);
         }
     }
-    alert("Gerando..."); processar();
+    alert("Gerando Imagens (Paisagem)..."); processar();
 }
 
 function gerarExcel(d, i) {
