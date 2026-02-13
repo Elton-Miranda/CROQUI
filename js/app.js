@@ -193,12 +193,11 @@ function confirmarSalvar() {
 
     function processar() {
         if (idx < paginas.length) {
-            canvas.clear();
-            // Configura tamanho e FORÇA FUNDO BRANCO para a "folha de sulfite"
-            canvas.setWidth(exportWidth); canvas.setHeight(exportHeight);
-            canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
             
             canvas.loadFromJSON(paginas[idx], function() {
+                // Configura tamanho e FORÇA FUNDO BRANCO para a "folha de sulfite"
+                canvas.setWidth(exportWidth); canvas.setHeight(exportHeight);
+                canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
                 canvas.getObjects().forEach(o => { if (o.id_tipo === 'medida') { if (o.sub_tipo === 'instalado') totais.redeInstalada += o.valor_metragem; if (o.sub_tipo === 'retirado') totais.redeRetirada += o.valor_metragem; if (o.sub_tipo === 'cordoalha') totais.cordoalha += o.valor_metragem; } });
                 // Não precisamos remover margens visuais pois elas já não são mais desenhadas
 
