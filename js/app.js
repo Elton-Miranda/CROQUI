@@ -8,6 +8,15 @@ var paginas = [{ objects: [] }];
 var paginaAtual = 0; 
 var propsParaSalvar = ['id_tipo', 'sub_tipo', 'valor_metragem', 'lockMovementX', 'lockMovementY', 'selectable', 'evented', 'strokeDashArray', 'stroke', 'strokeWidth', 'fill', 'backgroundColor'];
 
+function bloquearEscalaRotacao(obj) {
+    if (!obj || obj.type === 'activeSelection') return;
+    obj.set({ lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
+}
+
+canvas.on('object:added', function(e) {
+    bloquearEscalaRotacao(e.target);
+});
+
 // --- AJUSTE DE TELA (INTERFACE DO USUÁRIO) ---
 function resizeCanvas() {
     canvas.setWidth(window.innerWidth);
@@ -43,6 +52,7 @@ function carregarPagina(index) {
     canvas.clear(); 
     var dados = paginas[index];
     canvas.loadFromJSON(dados, function() {
+        canvas.getObjects().forEach(bloquearEscalaRotacao);
         // desenharMargensSeguranca(); // Removido
         canvas.renderAll();
         var ind = document.getElementById('page-indicator');
@@ -173,6 +183,55 @@ document.addEventListener('keydown', function(e) { if(e.key === "Delete") delete
 // --- SALVAMENTO E EXPORTAÇÃO (PAISAGEM + FUNDO BRANCO) ---
 function abrirModalSalvar() { document.getElementById('modalSalvar').style.display = 'flex'; renderListaMateriais(); }
 function fecharModais() { document.getElementById('modalSalvar').style.display = 'none'; }
+function popularDatalistItensMateriais() {
+    var origem = Array.isArray(window.LISTA_ITENS_MATERIAIS) ? window.LISTA_ITENS_MATERIAIS : [];
+    var datalist = document.getElementById('listaItensMateriais');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    origem.forEach(function(item) {
+        var opt = document.createElement('option');
+        opt.value = item;
+        datalist.appendChild(opt);
+    });
+}
+function inicializarSugestoesMateriais() {
+    var input = document.getElementById('manualItem');
+    var lista = document.getElementById('manualItemSugestoes');
+    var origem = document.getElementById('listaItensMateriais');
+    if (!input || !lista || !origem) return;
+
+    var itens = Array.from(origem.options).map(function(opt) { return opt.value; }).filter(Boolean);
+
+    function renderizarSugestoes(termo) {
+        var busca = (termo || '').trim().toLowerCase();
+        var filtrados = busca
+            ? itens.filter(function(item) { return item.toLowerCase().includes(busca); })
+            : itens.slice();
+
+        filtrados = filtrados.slice(0, 40);
+        lista.innerHTML = '';
+
+        filtrados.forEach(function(item) {
+            var botao = document.createElement('button');
+            botao.type = 'button';
+            botao.className = 'manual-sug-item';
+            botao.textContent = item;
+            botao.title = item;
+            botao.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                input.value = item;
+                lista.innerHTML = '';
+            });
+            lista.appendChild(botao);
+        });
+    }
+
+    input.addEventListener('focus', function() { renderizarSugestoes(input.value); });
+    input.addEventListener('input', function() { renderizarSugestoes(input.value); });
+    input.addEventListener('blur', function() {
+        setTimeout(function() { lista.innerHTML = ''; }, 100);
+    });
+}
 function addMaterialManual() { let n = document.getElementById('manualItem').value; let q = document.getElementById('manualQtd').value; if (!n || !q) { alert("Preencha Nome e Qtd"); return; } listaMateriaisManuais.push({ item: n, qtd: q }); document.getElementById('manualItem').value = ""; document.getElementById('manualQtd').value = ""; document.getElementById('manualItem').focus(); renderListaMateriais(); }
 function renderListaMateriais() { let ul = document.getElementById('listaMateriaisVisivel'); ul.innerHTML = ""; if (listaMateriaisManuais.length === 0) { ul.innerHTML = "<li style='color:#999; text-align:center;'>Nenhum item extra.</li>"; return; } listaMateriaisManuais.forEach((m, i) => { let li = document.createElement("li"); li.innerHTML = `<span><b>${m.qtd}</b> x ${m.item}</span> <button onclick="removerMaterialManual(${i})" style="background:#c0392b; color:white; border:none; border-radius:4px; cursor:pointer;">X</button>`; ul.appendChild(li); }); }
 function removerMaterialManual(i) { listaMateriaisManuais.splice(i, 1); renderListaMateriais(); }
@@ -193,12 +252,13 @@ function confirmarSalvar() {
 
     function processar() {
         if (idx < paginas.length) {
-            canvas.clear();
+            // canvas.clear();
             // Configura tamanho e FORÇA FUNDO BRANCO para a "folha de sulfite"
-            canvas.setWidth(exportWidth); canvas.setHeight(exportHeight);
-            canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
             
             canvas.loadFromJSON(paginas[idx], function() {
+                canvas.setWidth(exportWidth);
+                canvas.setHeight(exportHeight);
+                canvas.setBackgroundColor('#ffffff', canvas.renderAll.bind(canvas));
                 canvas.getObjects().forEach(o => { if (o.id_tipo === 'medida') { if (o.sub_tipo === 'instalado') totais.redeInstalada += o.valor_metragem; if (o.sub_tipo === 'retirado') totais.redeRetirada += o.valor_metragem; if (o.sub_tipo === 'cordoalha') totais.cordoalha += o.valor_metragem; } });
                 // Não precisamos remover margens visuais pois elas já não são mais desenhadas
 
@@ -248,5 +308,11 @@ function gerarExcel(d, i) {
 }
 
 // Inicializa
-atualizarBitolas();
-carregarPagina(0);
+async function inicializarApp() {
+    atualizarBitolas();
+    carregarPagina(0);
+    popularDatalistItensMateriais();
+    inicializarSugestoesMateriais();
+}
+
+inicializarApp();

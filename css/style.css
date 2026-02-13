@@ -93,3 +93,37 @@ button:active { transform: scale(0.95); background: #eee; }
 .form-group { display: flex; gap: 5px; margin-bottom: 8px; }
 input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
 .btn-full { width: 100%; padding: 12px; margin-top: 15px; background: #660099; color: white; font-weight: bold; border: none; }
+
+.manual-item-wrap { position: relative; }
+.manual-sugestoes {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    z-index: 500;
+}
+.manual-sugestoes:empty { display: none; }
+.manual-sug-item {
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid #eee;
+    border-radius: 0;
+    background: white;
+    text-align: left;
+    font-size: 12px;
+    line-height: 1.2;
+    padding: 8px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    white-space: normal;
+}
+.manual-sug-item:last-child { border-bottom: none; }
+.manual-sug-item:hover { background: #f5f0ff; }

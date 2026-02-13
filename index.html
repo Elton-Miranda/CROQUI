@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
+    <!-- protagonismo -->
     <button id="btnToggleUI" onclick="toggleUI()">👁️</button>
 
     <div id="canvas-container">
@@ -138,17 +138,27 @@
             <hr>
             <h4>Materiais Extras</h4>
             <div class="form-group">
-                <input type="text" id="manualItem" placeholder="Item" style="flex:2">
+                <div class="manual-item-wrap" style="flex:2">
+                    <input type="text" id="manualItem" placeholder="Item">
+                    <div id="manualItemSugestoes" class="manual-sugestoes"></div>
+                </div>
                 <input type="number" id="manualQtd" placeholder="Qtd" style="flex:1">
                 <button onclick="addMaterialManual()" style="background:#660099; color:white;">+</button>
             </div>
+            <datalist id="listaItensMateriais"></datalist>
             <ul id="listaMateriaisVisivel"></ul>
+
             <button class="btn-full" onclick="confirmarSalvar()">BAIXAR ARQUIVOS</button>
         </div>
     </div>
 
     <div id="page-indicator">Pág 1</div>
 
+    <script src="js/itens-materiais.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
+
+
+
+
