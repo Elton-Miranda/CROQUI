@@ -256,6 +256,9 @@ function confirmarSalvar() {
             // Configura tamanho e FORÇA FUNDO BRANCO para a "folha de sulfite"
             
             canvas.loadFromJSON(paginas[idx], function() {
+                // Configura tamanho e FORÇA FUNDO BRANCO para a "folha de sulfite"
+                canvas.setWidth(exportWidth); canvas.setHeight(exportHeight);
+                canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
                 canvas.setWidth(exportWidth);
                 canvas.setHeight(exportHeight);
                 canvas.setBackgroundColor('#ffffff', canvas.renderAll.bind(canvas));
