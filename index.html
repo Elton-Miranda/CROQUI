@@ -37,8 +37,8 @@
         <div class="dropup-container">
             <button id="btnConectar" class="tool-btn" onclick="toggleSubMenuCabos()">🔗 Cabos</button>
             <div id="submenu-cabos" class="submenu-up hidden">
-                <button onpointerdown="event.stopPropagation(); toggleModoConexao('instalado')">🔴 Instalar</button>
-                <button onpointerdown="event.stopPropagation(); toggleModoConexao('existente')">⚫ Existente</button>
+                <button onpointerdown="event.preventDefault(); event.stopPropagation(); toggleModoConexao('instalado')">🔴 Instalar (Novo)</button>
+                <button onpointerdown="event.preventDefault(); event.stopPropagation(); toggleModoConexao('existente')">⚫ Existente</button>
             </div>
         </div>
         
@@ -47,25 +47,24 @@
         <button onclick="ativarZoomDetalhes()" id="btnZoom" class="tool-btn">🔍 Zoom</button>
     </div>
 
-    <div id="pie-menu" class="pie-menu hidden">
-        <button class="pie-item pie-xc" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('Poste XC')">XC</button>
-        <button class="pie-item pie-xm" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('Poste XM')">XM</button>
-        <button class="pie-item pie-cs" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('CS')">CS</button>
-        <button class="pie-item pie-sub" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('Subida')">SUB</button>
-        <button class="pie-item pie-cto" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('CTO')">CTO</button>
-        <button class="pie-item pie-ceo" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('CEO')">CEO</button>
-        <button class="pie-item pie-del" data-menu="main" onpointerdown="event.stopPropagation(); apagarItem()">🗑️</button>
-        <button class="pie-item pie-close" data-menu="main" onpointerdown="event.stopPropagation(); fecharPieMenu()">✖</button>
+    <<div id="pie-menu" class="pie-menu hidden">
+        <button class="pie-item pie-xc" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('Poste XC')">XC</button>
+        <button class="pie-item pie-xm" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('Poste XM')">XM</button>
+        <button class="pie-item pie-cs" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('CS')">CS</button>
+        <button class="pie-item pie-sub" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('Subida')">SUB</button>
+        <button class="pie-item pie-cto" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('CTO')">CTO</button>
+        <button class="pie-item pie-ceo" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('CEO')">CEO</button>
         
-        <button class="pie-item pie-st" data-menu="sub" onpointerdown="event.stopPropagation(); addSimbologia('ST')">ST</button>
-        <button class="pie-item pie-ponto" data-menu="sub" onpointerdown="event.stopPropagation(); addSimbologia('PONTO')">⚫</button>
-        <button class="pie-item pie-tri" data-menu="sub" onpointerdown="event.stopPropagation(); addSimbologia('TRI')">▲▲</button>
-        <button class="pie-item pie-ok" data-menu="sub" onpointerdown="event.stopPropagation(); fecharPieMenu()">✔️</button>
+        <button class="pie-item pie-mat" data-menu="caixa" onpointerdown="event.preventDefault(); event.stopPropagation(); registrarMaterialCaixa()">📦</button>
+        <button class="pie-item pie-del" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); apagarItem()">🗑️</button>
+        <button class="pie-item pie-close" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); fecharPieMenu()">✖</button>
+        
+        <button class="pie-item pie-st" data-menu="sub" onpointerdown="event.preventDefault(); event.stopPropagation(); addSimbologia('ST')">ST</button>
+        <button class="pie-item pie-ponto" data-menu="sub" onpointerdown="event.preventDefault(); event.stopPropagation(); addSimbologia('PONTO')">⚫</button>
+        <button class="pie-item pie-tri" data-menu="sub" onpointerdown="event.preventDefault(); event.stopPropagation(); addSimbologia('TRI')">▲▲</button>
+        <button class="pie-item pie-ok" data-menu="sub" onpointerdown="event.preventDefault(); event.stopPropagation(); fecharPieMenu()">✔️</button>
 
-        <button class="pie-item pie-mat" data-menu="caixa" onpointerdown="event.stopPropagation(); registrarMaterialCaixa()">📦</button>
-
-        <button class="pie-item pie-edit" data-menu="cabo" onpointerdown="event.stopPropagation(); editarMetragemCabo()">✏️</button>
-
+        <button class="pie-item pie-edit" data-menu="cabo" onpointerdown="event.preventDefault(); event.stopPropagation(); editarMetragemCabo()">✏️</button>
     </div>
 
     <div id="status-bar">Modo: Navegação Livre</div>
