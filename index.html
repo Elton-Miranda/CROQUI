@@ -3,162 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Croqui Híbrido Pro</title>
-    
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><path d=%22M50 10 L20 80 M50 10 L80 80%22 stroke=%22%23660099%22 stroke-width=%228%22 stroke-linecap=%22round%22/><circle cx=%2250%22 cy=%2210%22 r=%226%22 fill=%22%2300ffff%22/></svg>">
+    <title>Croqui Híbrido Pro - Mobile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-    <!-- protagonismo -->
-    <button id="btnToggleUI" onclick="toggleUI()">👁️</button>
+    <header class="app-header-symmetric">
+        <div class="header-left">
+            <button id="btnUndo" onclick="desfazer()" disabled>↩️</button>
+            <button id="btnRedo" onclick="refazer()" disabled>↪️</button>
+            
+            <button id="btnNovo" onclick="novoCroqui()" class="btn-novo">📄 Novo</button>
+            <button id="btnHelp" onclick="abrirTutorial()" class="btn-help">❓ Ajuda</button>
+        </div>
+        
+        <div class="logo-center">CROQUI <span>PRO</span></div>
+        
+        <div class="header-right">
+            <button onclick="abrirModalSalvar()" class="btn-save-icon">💾</button>
+        </div>
+    </header>
 
     <div id="canvas-container">
         <canvas id="c"></canvas>
     </div>
 
-    <div id="ui-container" class="glass-panel">
-        
-        <div class="ui-header">
-            <h2 style="margin:0; font-size:14px; color:#660099;">CROQUI <span style="font-size:9px; color:#555;">APP</span></h2>
-            <div class="ui-controls">
-                <button onclick="novoCroqui()" class="btn-mini" style="background:#e74c3c;">🗑️ Limpar</button>
-                <button onclick="abrirModalSalvar()" class="btn-mini" style="background:#27ae60;">💾 Salvar</button>
+    <div class="bottom-toolbar">
+        <div class="dropup-container">
+            <button id="btnConectar" class="tool-btn" onclick="toggleSubMenuCabos()">🔗 Cabos</button>
+            <div id="submenu-cabos" class="submenu-up hidden">
+                <button onpointerdown="event.stopPropagation(); toggleModoConexao('instalado')">🔴 Instalar</button>
+                <button onpointerdown="event.stopPropagation(); toggleModoConexao('existente')">⚫ Existente</button>
             </div>
         </div>
+        
+        <button onclick="adicionarRuaLivre()" class="tool-btn btn-info">🅰️ Rua</button>
+        <button onclick="apagarSelecionados()" class="tool-btn btn-danger">🗑️ Apagar</button>
+        <button onclick="ativarZoomDetalhes()" id="btnZoom" class="tool-btn">🔍 Zoom</button>
+    </div>
 
-        <div class="scroll-container">
-            
-            <div class="tool-section">
-                <span class="section-title">CABOS</span>
-                <div class="btn-grid">
-                    <button id="btnInstall" class="btn-tool btn-red" onclick="ativarModoLinha('instalar')">Novo</button>
-                    <button id="btnRet" class="btn-tool btn-green" onclick="ativarModoLinha('retirar')">Retirar</button>
-                    <button id="btnCord" class="btn-tool btn-blue" onclick="ativarModoLinha('cordoalha')">Cordoalha</button>
-                    </div>
+    <div id="pie-menu" class="pie-menu hidden">
+        <button class="pie-item pie-xc" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('Poste XC')">XC</button>
+        <button class="pie-item pie-xm" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('Poste XM')">XM</button>
+        <button class="pie-item pie-cs" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('CS')">CS</button>
+        <button class="pie-item pie-sub" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('Subida')">SUB</button>
+        <button class="pie-item pie-cto" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('CTO')">CTO</button>
+        <button class="pie-item pie-ceo" data-menu="main" onpointerdown="event.stopPropagation(); inserirEquipamento('CEO')">CEO</button>
+        <button class="pie-item pie-del" data-menu="main" onpointerdown="event.stopPropagation(); apagarItem()">🗑️</button>
+        <button class="pie-item pie-close" data-menu="main" onpointerdown="event.stopPropagation(); fecharPieMenu()">✖</button>
+        
+        <button class="pie-item pie-st" data-menu="sub" onpointerdown="event.stopPropagation(); addSimbologia('ST')">ST</button>
+        <button class="pie-item pie-ponto" data-menu="sub" onpointerdown="event.stopPropagation(); addSimbologia('PONTO')">⚫</button>
+        <button class="pie-item pie-tri" data-menu="sub" onpointerdown="event.stopPropagation(); addSimbologia('TRI')">▲▲</button>
+        <button class="pie-item pie-ok" data-menu="sub" onpointerdown="event.stopPropagation(); fecharPieMenu()">✔️</button>
+
+        <button class="pie-item pie-mat" data-menu="caixa" onpointerdown="event.stopPropagation(); registrarMaterialCaixa()">📦</button>
+
+        <button class="pie-item pie-edit" data-menu="cabo" onpointerdown="event.stopPropagation(); editarMetragemCabo()">✏️</button>
+
+    </div>
+
+    <div id="status-bar">Modo: Navegação Livre</div>
+
+    <div id="modalCTO" class="modal">
+        <div class="modal-content" style="max-width: 320px;">
+            <span class="close" onclick="fecharModais(); fecharPieMenu();">&times;</span>
+            <h3 style="margin-bottom: 15px;">Configurar CTO</h3>
+
+            <div class="form-group">
+                <input type="text" id="ctoNum" placeholder="Número / Nome (Ex: 01)">
             </div>
 
-            <div class="tool-section">
-                <span class="section-title">ETIQUETA</span>
-                <div style="display:flex; flex-direction:column;">
-                    <select id="tipoCabo" onchange="atualizarBitolas()" class="ui-select">
-                        <option value="AS">CFOA AS</option>
-                        <option value="DROP">DROP</option>
-                    </select>
-                    <div style="display:flex; gap:5px;">
-                        <select id="bitolaCabo" class="ui-select" style="flex:1;"></select>
-                        <button class="btn-tool" onclick="addEtiquetaCabo()" style="flex:1; background:#eee;">Inserir</button>
-                    </div>
-                </div>
+            <div class="form-group">
+                <select id="ctoContagem" class="smart-select">
+                    <option value="">Selecione a Contagem...</option>
+                    <option value="01-08">01-08</option>
+                    <option value="09-16">09-16</option>
+                    <option value="17-24">17-24</option>
+                    <option value="25-32">25-32</option>
+                    <option value="33-40">33-40</option>
+                    <option value="41-48">41-48</option>
+                    <option value="49-56">49-56</option>
+                    <option value="57-64">57-64</option>
+                </select>
             </div>
 
-            <div class="tool-section">
-                <span class="section-title">INFRA</span>
-                <div class="btn-grid">
-                    <button class="btn-tool" onclick="addPoste('XC')">Poste XC</button>
-                    <button class="btn-tool" onclick="addPoste('XM')">Poste XM</button>
-                    <button class="btn-tool" onclick="addSubidaLateral()">Subida</button>
-                    <button class="btn-tool" onclick="addCS()">Cx. Sub</button>
-                </div>
+            <div class="form-group">
+                <select id="ctoCor" class="smart-select">
+                    <option value="black">Cor da Caixa (Preto)</option>
+                    <option value="#27ae60">🟢 Verde</option>
+                    <option value="#f1c40f">🟡 Amarela</option>
+                    <option value="#ffffff">⚪ Branca</option>
+                    <option value="#2980b9">🔵 Azul</option>
+                    <option value="#e74c3c">🔴 Vermelha</option>
+                    <option value="#8e44ad">🟣 Violeta</option>
+                </select>
             </div>
 
-            <div class="tool-section">
-                <span class="section-title">CAIXAS</span>
-                <div class="btn-grid">
-                    <button class="btn-tool" onclick="addCEO(true)">CEO Ex.</button>
-                    <button class="btn-tool" onclick="addCEO(false)">CEO Nova</button>
-                </div>
-            </div>
-
-            <div class="tool-section">
-                <span class="section-title">CTO</span>
-                <div class="btn-grid ctop-row">
-                    <button class="btn-color" style="background:#690169;" onclick="addCTOP('#690169','1:8')">1:8</button>
-                    <button class="btn-color" style="background:#FF0000;" onclick="addCTOP('#FF0000','60/40')">60/40</button>
-                    <button class="btn-color" style="background:#0000FF;" onclick="addCTOP('#0000FF','70/30')">70/30</button>
-                    <button class="btn-color" style="background:#dedee0; color:#333;" onclick="addCTOP('#dedee0','80/20')">80/20</button>
-                    <button class="btn-color" style="background:#FFFF00; color:#333;" onclick="addCTOP('#FFFF00','85/15')">85/15</button>
-                    <button class="btn-color" style="background:#008000;" onclick="addCTOP('#008000','90/10')">90/10</button>
-                </div>
-            </div>
-
-            <div class="tool-section">
-                <span class="section-title">NOTAS</span>
-                <div class="btn-grid">
-                    <button class="btn-tool" onclick="addObservacao()">📝 Nota</button>
-                    <button class="btn-tool" onclick="addNomeRua()">🅰️ Rua</button>
-                    <button class="btn-tool" onclick="ativarModoLinha('seta')">↗️ Seta</button>
-                </div>
-            </div>
-
-            <div class="tool-section">
-                <span class="section-title">MEDIDAS</span>
-                <div class="btn-grid">
-                    <button class="btn-tool" onclick="addMedida('instalado')">Inst.</button>
-                    <button class="btn-tool" onclick="addMedida('retirado')">Ret.</button>
-                    <button class="btn-tool" onclick="addMedida('cordoalha')">Cord.</button>
-                </div>
-            </div>
-
-            <div class="tool-section">
-                <span class="section-title">EXTRAS</span>
-                <div class="btn-grid">
-                    <button class="btn-tool" onclick="deleteSelected()" style="color:red;">Apagar Item</button>
-                    <div style="display:flex; gap:2px;">
-                        <button class="btn-tool" onclick="mudarPagina(-1)">◀</button>
-                        <button class="btn-tool" onclick="mudarPagina(1)">▶</button>
-                    </div>
-                    <button class="btn-tool" onclick="adicionarPagina()">+ Pág</button>
-                </div>
-            </div>
-            
-            <div style="height: 50px;"></div> </div>
+            <button class="btn-full" onclick="confirmarCTO()">INSERIR CTO NO MAPA</button>
+        </div>
     </div>
 
     <div id="modalSalvar" class="modal">
         <div class="modal-content">
             <span class="close" onclick="fecharModais()">&times;</span>
-            <h3>Salvar Projeto</h3>
-            <div class="form-group">
-                <input type="text" id="inputNome" placeholder="Nome Técnico">
-                <input type="text" id="inputSobrenome" placeholder="Sobrenome">
-            </div>
-            <div class="form-group">
-                <input type="text" id="inputRE" placeholder="RE">
-                <input type="text" id="inputAT" placeholder="AT (Área)">
-            </div>
-            <div class="form-group">
-                <input type="number" id="inputCabo" placeholder="Cabo">
-                <input type="number" id="inputPrimaria" placeholder="Primária">
-            </div>
-            <input type="text" id="inputOcorrencia" placeholder="Ocorrência (Opcional)" style="width:100%; margin-top:5px;">
-            <hr>
-            <h4>Materiais Extras</h4>
-            <div class="form-group">
-                <div class="manual-item-wrap" style="flex:2">
-                    <input type="text" id="manualItem" placeholder="Item">
-                    <div id="manualItemSugestoes" class="manual-sugestoes"></div>
-                </div>
-                <input type="number" id="manualQtd" placeholder="Qtd" style="flex:1">
-                <button onclick="addMaterialManual()" style="background:#660099; color:white;">+</button>
-            </div>
-            <datalist id="listaItensMateriais"></datalist>
-            <ul id="listaMateriaisVisivel"></ul>
+            <h3 style="margin-bottom: 2px;">Relatório de Ocorrência</h3>
+            <p style="font-size: 11px; color: #7f8c8d; margin-top: 0; margin-bottom: 15px;">Padrão Telefonica / Vivo / Ability</p>
 
-            <button class="btn-full" onclick="confirmarSalvar()">BAIXAR ARQUIVOS</button>
+            <div class="os-form-scroll">
+                <fieldset>
+                    <legend>Identificação da OS</legend>
+                    <div class="form-group">
+                        <input type="text" id="inputOC" placeholder="Nº OC / OR (Ex: 940841)">
+                        <input type="text" id="inputCausa" placeholder="Causa (Ex: Sem Sinal)">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="inputMotivo" placeholder="Motivo (Ex: Carga Alta)">
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Dados da Rede</legend>
+                    <div class="form-group">
+                        <input type="text" id="inputLocCT" placeholder="LOC / CT">
+                        <input type="text" id="inputCabo" placeholder="Cabo (Ex: 02)">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="inputPrimaria" placeholder="Primária (Ex: 109)">
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Equipe Executante</legend>
+                    <div class="form-group">
+                        <input type="text" id="inputEncarregado" placeholder="Encarregado / Téc 01">
+                        <input type="text" id="inputRE" placeholder="RE (80)">
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="inputPlaca" placeholder="Placa do Veículo">
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Serviços / Materiais (CFO/LFO)</legend>
+                    <div class="form-group">
+                        <select id="selectMaterialBase" class="smart-select" onchange="verificarMaterialOutro()">
+                            <option value="">Selecione um código...</option>
+                            <option value="29.068-9 - Fusão Nova">29.068-9 - Fusão Nova</option>
+                            <option value="29.083-2 - Fusão Existente">29.083-2 - Fusão Existente</option>
+                            <option value="29.139-0 - Localizar Defeito / Abertura Cx">29.139-0 - Localizar Def./Abertura</option>
+                            <option value="29.225-7 - Instalar Cx Emenda Óptica">29.225-7 - Instalar Cx Emenda</option>
+                            <option value="29.077-7 - Retirar Cabo FO Autossustentado">29.077-7 - Retirar Cabo FO</option>
+                            <option value="Outro">Outro (Digitar Manualmente)</option>
+                        </select>
+                        <input type="number" id="manualQtd" placeholder="Qtd" style="flex: 0.4;">
+                        <button onclick="addMaterialManual()" style="background:var(--primary); color:white; border-radius:8px; padding:0 12px;">+</button>
+                    </div>
+                    <input type="text" id="manualItem" placeholder="Descreva o material/serviço..." style="display:none; margin-top: -5px; margin-bottom: 8px;">
+                    <ul id="listaMateriaisVisivel"></ul>
+                </fieldset>
+            </div>
+
+            <button class="btn-full" onclick="confirmarSalvar()">GERAR RELATÓRIO (PDF)</button>
         </div>
     </div>
 
-    <div id="page-indicator">Pág 1</div>
+    <div id="modalTutorial" class="modal">
+        <div class="modal-content" style="max-width: 350px; text-align: center; padding: 25px 20px;">
+            
+            <div class="tut-slide active" id="slide-0">
+                <h2 style="color: var(--primary);">Bem-vindo ao Croqui Pro! 🚀</h2>
+                <p style="font-size: 14px; color: #555;">Sua nova ferramenta de campo para desenhar redes e gerar relatórios de faturamento em segundos.</p>
+                <div style="font-size: 40px; margin: 20px 0;">📱</div>
+                <p style="font-size: 13px; color: #777;">Arraste com 1 dedo para mover a tela.<br>Use 2 dedos (pinça) para dar Zoom.</p>
+            </div>
 
-    <script src="js/itens-materiais.js"></script>
+            <div class="tut-slide hidden" id="slide-1">
+                <h2 style="color: var(--info);">Ruas e Equipamentos</h2>
+                <p style="font-size: 14px; color: #555;">Clique no botão <b>🅰️ Rua</b> para adicionar logradouros (eles travam em 45º automaticamente).</p>
+                <div style="font-size: 35px; margin: 15px 0;">🎯</div>
+                <p style="font-size: 13px; color: #777;">Para adicionar um Poste ou CTO, simplesmente <b>toque em qualquer bolinha cinza</b> da tela para abrir o Menu Redondo!</p>
+            </div>
+
+            <div class="tut-slide hidden" id="slide-2">
+                <h2 style="color: var(--danger);">Lançando Cabos</h2>
+                <p style="font-size: 14px; color: #555;">Clique em <b>🔗 Cabos</b> e escolha o tipo (Instalar, Retirar, Existente).</p>
+                <div style="font-size: 35px; margin: 15px 0;">🔘 〰️ 🔘</div>
+                <p style="font-size: 13px; color: #777;">Toque em 2 bolinhas ou postes para ligá-los. O cabo sai com 40m automático. Para editar o tamanho, <b>toque na linha do cabo</b> e aperte o lápis ✏️.</p>
+            </div>
+
+            <div class="tut-slide hidden" id="slide-3">
+                <h2 style="color: var(--success);">Gerando o Relatório</h2>
+                <p style="font-size: 14px; color: #555;">Terminou o croqui? Clique no disquete <b>💾 Salvar</b> lá no topo.</p>
+                <div style="font-size: 35px; margin: 15px 0;">📊</div>
+                <p style="font-size: 13px; color: #777;">Preencha os dados da OS, adicione materiais extras (CFO) e nós geramos a Foto de Medição e a Planilha Excel pra você!</p>
+            </div>
+
+            <div class="tut-controls" style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="mudarSlide(-1)" id="btnTutPrev" style="visibility: hidden; background: #ecf0f1; color: #333;">⬅️ Voltar</button>
+                
+                <div id="tut-dots" style="display: flex; gap: 5px;">
+                    <span class="dot active"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+                
+                <button onclick="mudarSlide(1)" id="btnTutNext" style="background: var(--primary); color: white;">Avançar ➡️</button>
+                <button onclick="fecharTutorial()" id="btnTutFim" class="hidden" style="background: var(--success); color: white;">Começar! ✅</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/app.js"></script>
 </body>
 </html>
-
-
-
-
