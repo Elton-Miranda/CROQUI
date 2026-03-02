@@ -521,7 +521,7 @@ function formatarDuasCasas(val, max) {
     return String(n).padStart(2, '0');
 }
 
-// --- EXPORTAÇÃO (PDF COM LIMITES DE REGRAS DE NEGÓCIO) ---
+// --- EXPORTAÇÃO (PDF COM LIMITES DE REGRAS DE NEGÓCIO E CORREÇÃO MOBILE) ---
 function confirmarSalvar() {
     let oc = document.getElementById('inputOC').value.replace(/[^0-9]/g, '') || "S/I"; 
     let causa = document.getElementById('inputCausa').value || "S/I"; 
@@ -546,50 +546,66 @@ function confirmarSalvar() {
 
     let cabosInstalados = canvas.getObjects().filter(o => o.id_tipo === 'cabo' && o.sub_tipo === 'instalado');
     if (cabosInstalados.length > 0) { if (confirm("📦 Houve RETIRADA DE CABO nesta OS?\n\nClique em [OK] para que o sistema crie a linha Verde de retirada automaticamente.")) { gerarRetiradaAutomatica(cabosInstalados); } }
-    
-    let totais = { redeInstalada: 0, redeRetirada: 0, itensExtras: [] }; listaMateriaisManuais.forEach(m => { totais.itensExtras.push({ qtd: m.qtd, item: m.item }); });
-    let ctosExtraidas = []; let ruasExtraidas = [];
 
-    canvas.getObjects().forEach(o => { 
-        if (o.id_tipo === 'cabo' && o.valor_metragem) { if (o.sub_tipo === 'instalado') totais.redeInstalada += o.valor_metragem; if (o.sub_tipo === 'retirado') totais.redeRetirada += o.valor_metragem; }
-        if (o.id_tipo === 'rua_livre' && o.text && !ruasExtraidas.includes(o.text)) ruasExtraidas.push(o.text);
-        if (o.id_tipo === 'equipamento_cabo' && o.is_cto) { let chaveCto = o.cto_num + "|" + o.cto_contagem; if (!ctosExtraidas.some(c => c.chave === chaveCto)) ctosExtraidas.push({ chave: chaveCto, num: o.cto_num, cont: o.cto_contagem }); }
-        if (o.id_tipo === 'equipamento_cabo' && o.materiais_gastos) { let nomeCaixa = o.is_cto ? `CTO ${o.cto_num}` : "CEO"; totais.itensExtras.push({ item: `Material Local (${nomeCaixa})`, qtd: o.materiais_gastos }); }
-    });
-
-    let strEndereco = ruasExtraidas.length > 0 ? ruasExtraidas.join(" / ") : "S/I"; let strCaixas = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.num).join(", ") : "S/I"; let strDist = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.cont).join(", ") : "S/I";
-
-    let vptOriginal = canvas.viewportTransform.slice(); canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-    var originalWidth = canvas.width; var originalHeight = canvas.height; var exportWidth = 1280; var exportHeight = 720;
-    
-    // Oculta a grade perfeitamente para a foto do PDF
-    canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', false); }); 
-    
-    canvas.setWidth(exportWidth); canvas.setHeight(exportHeight); canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
-
-    var drawnObjects = canvas.getObjects().filter(o => o.id_tipo !== 'grid_dot'); var g = null; var origGroupState = {};
-    if(drawnObjects.length > 0) {
-        g = new fabric.Group(drawnObjects); origGroupState = { left: g.left, top: g.top, scaleX: g.scaleX, scaleY: g.scaleY };
-        var scale = Math.min((exportWidth - 100) / g.width, (exportHeight - 120) / g.height); if(scale > 2.0) scale = 2.0; 
-        g.scale(scale); g.set({ left: exportWidth / 2, top: 400, originX: 'center', originY: 'center' }); 
-        g.setCoords(); canvas.add(g); canvas.renderAll();
-    }
-
-    var headerBg = new fabric.Rect({ left: 0, top: 0, width: exportWidth, height: 85, fill: '#ffffff', selectable: false }); var headerLine = new fabric.Line([0, 85, exportWidth, 85], { stroke: '#bdc3c7', strokeWidth: 2, selectable: false });
-    let linha1 = `OC/OR: ${oc}   |   CAIXA: ${strCaixas}   |   DATA: ${hoje}   |   NOME (TEC 01): ${encarregado.toUpperCase()}   |   RE: ${re}   |   PLACA: ${placa.toUpperCase()}`;
-    let linha2 = `ENDEREÇO: ${strEndereco}   |   CAUSA: ${causa}   |   MOTIVO: ${motivo}`;
-    let linha3 = `REDE   ->   AT: ${locCT}   |   CABO: ${cabo}   |   PRIMÁRIA: ${primaria}   |   DISTRIBUIÇÃO: ${strDist}`;
-    
-    var txtTopo1 = new fabric.Text(linha1, { fontSize: 15, fill: '#660099', fontWeight: 'bold', left: 20, top: 12, selectable: false });
-    var txtTopo2 = new fabric.Text(linha2, { fontSize: 14, fill: '#333', fontWeight: 'bold', left: 20, top: 36, selectable: false });
-    var txtTopo3 = new fabric.Text(linha3, { fontSize: 14, fill: '#333', left: 20, top: 60, selectable: false });
-    var txtResumoCabos = new fabric.Text(`Lançamento: ${totais.redeInstalada}m   |   Retirada: ${totais.redeRetirada}m`, { fontSize: 15, fill: '#27ae60', fontWeight: 'bold', left: exportWidth - 20, top: 36, originX: 'right', selectable: false });
-
-    canvas.add(headerBg, headerLine, txtTopo1, txtTopo2, txtTopo3, txtResumoCabos);
-
+    // MÁGICA: Executar tudo num bloco síncrono ultra-rápido para o celular não cortar a tela
     setTimeout(() => {
+        let totais = { redeInstalada: 0, redeRetirada: 0, itensExtras: [] }; listaMateriaisManuais.forEach(m => { totais.itensExtras.push({ qtd: m.qtd, item: m.item }); });
+        let ctosExtraidas = []; let ruasExtraidas = [];
+
+        canvas.getObjects().forEach(o => { 
+            if (o.id_tipo === 'cabo' && o.valor_metragem) { if (o.sub_tipo === 'instalado') totais.redeInstalada += o.valor_metragem; if (o.sub_tipo === 'retirado') totais.redeRetirada += o.valor_metragem; }
+            if (o.id_tipo === 'rua_livre' && o.text && !ruasExtraidas.includes(o.text)) ruasExtraidas.push(o.text);
+            if (o.id_tipo === 'equipamento_cabo' && o.is_cto) { let chaveCto = o.cto_num + "|" + o.cto_contagem; if (!ctosExtraidas.some(c => c.chave === chaveCto)) ctosExtraidas.push({ chave: chaveCto, num: o.cto_num, cont: o.cto_contagem }); }
+            if (o.id_tipo === 'equipamento_cabo' && o.materiais_gastos) { let nomeCaixa = o.is_cto ? `CTO ${o.cto_num}` : "CEO"; totais.itensExtras.push({ item: `Material Local (${nomeCaixa})`, qtd: o.materiais_gastos }); }
+        });
+
+        let strEndereco = ruasExtraidas.length > 0 ? ruasExtraidas.join(" / ") : "S/I"; let strCaixas = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.num).join(", ") : "S/I"; let strDist = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.cont).join(", ") : "S/I";
+
+        // 1. Salva estado atual
+        let vptOriginal = canvas.viewportTransform.slice(); 
+        var originalWidth = canvas.width; var originalHeight = canvas.height; 
+        var exportWidth = 1280; var exportHeight = 720;
+
+        canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); // Reseta câmera
+        canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', false); }); 
+
+        // 2. Transforma em Grupo REAL (Remove os soltos e impede duplicatas e cortes na foto)
+        var drawnObjects = canvas.getObjects().filter(o => o.id_tipo !== 'grid_dot'); 
+        var g = null; var origGroupState = {};
+        if(drawnObjects.length > 0) {
+            var sel = new fabric.ActiveSelection(drawnObjects, { canvas: canvas });
+            canvas.setActiveObject(sel);
+            g = sel.toGroup(); // Suga tudo para dentro do grupo Oficialmente
+            origGroupState = { left: g.left, top: g.top, scaleX: g.scaleX, scaleY: g.scaleY };
+            var scale = Math.min((exportWidth - 100) / g.width, (exportHeight - 120) / g.height); if(scale > 2.0) scale = 2.0; 
+            g.scale(scale); g.set({ left: exportWidth / 2, top: 400, originX: 'center', originY: 'center' }); 
+            g.setCoords();
+        }
+
+        // 3. Quebra as travas CSS do celular invisivelmente e cresce a tela
+        let wrap = canvas.wrapperEl;
+        let origWrapStyle = wrap ? wrap.getAttribute('style') : '';
+        if (wrap) { wrap.setAttribute('style', `width: ${exportWidth}px !important; height: ${exportHeight}px !important; max-width: none !important;`); }
+        canvas.setWidth(exportWidth); canvas.setHeight(exportHeight); 
+        canvas.setBackgroundColor('white', null);
+
+        var headerBg = new fabric.Rect({ left: 0, top: 0, width: exportWidth, height: 85, fill: '#ffffff', selectable: false }); var headerLine = new fabric.Line([0, 85, exportWidth, 85], { stroke: '#bdc3c7', strokeWidth: 2, selectable: false });
+        let linha1 = `OC/OR: ${oc}   |   CAIXA: ${strCaixas}   |   DATA: ${hoje}   |   NOME (TEC 01): ${encarregado.toUpperCase()}   |   RE: ${re}   |   PLACA: ${placa.toUpperCase()}`;
+        let linha2 = `ENDEREÇO: ${strEndereco}   |   CAUSA: ${causa}   |   MOTIVO: ${motivo}`;
+        let linha3 = `REDE   ->   AT: ${locCT}   |   CABO: ${cabo}   |   PRIMÁRIA: ${primaria}   |   DISTRIBUIÇÃO: ${strDist}`;
+        
+        var txtTopo1 = new fabric.Text(linha1, { fontSize: 15, fill: '#660099', fontWeight: 'bold', left: 20, top: 12, selectable: false });
+        var txtTopo2 = new fabric.Text(linha2, { fontSize: 14, fill: '#333', fontWeight: 'bold', left: 20, top: 36, selectable: false });
+        var txtTopo3 = new fabric.Text(linha3, { fontSize: 14, fill: '#333', left: 20, top: 60, selectable: false });
+        var txtResumoCabos = new fabric.Text(`Lançamento: ${totais.redeInstalada}m   |   Retirada: ${totais.redeRetirada}m`, { fontSize: 15, fill: '#27ae60', fontWeight: 'bold', left: exportWidth - 20, top: 36, originX: 'right', selectable: false });
+
+        canvas.add(headerBg, headerLine, txtTopo1, txtTopo2, txtTopo3, txtResumoCabos);
+        canvas.renderAll();
+
+        // 4. Bate a foto gigante e constrói o PDF
         try {
-            var imgData = canvas.toDataURL({ format: 'png', quality: 1.0 }); const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            var imgData = canvas.toDataURL({ format: 'png', quality: 1.0 }); 
+            const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
             doc.addImage(imgData, 'PNG', 0, 21.5, 297, 167); doc.addPage('a4', 'portrait');
             doc.setFontSize(16); doc.setTextColor(102, 0, 153); doc.text("Relatório de Quantitativos e Serviços", 14, 20);
             
@@ -606,15 +622,16 @@ function confirmarSalvar() {
             doc.save(`${idProj}.pdf`); alert("PDF gerado com sucesso! 🎉");
         } catch (erro) { console.error(erro); alert("Erro ao gerar PDF."); }
         
+        // 5. Limpa a bagunça, explode o grupo e devolve o layout de celular ao normal
         canvas.remove(headerBg, headerLine, txtTopo1, txtTopo2, txtTopo3, txtResumoCabos); 
         if(g) { g.set(origGroupState); g.setCoords(); g.toActiveSelection(); canvas.discardActiveObject(); }
+        
+        if (wrap) { wrap.setAttribute('style', origWrapStyle); } // Devolve travas CSS
         canvas.setWidth(originalWidth); canvas.setHeight(originalHeight); canvas.setViewportTransform(vptOriginal); 
         
-        // Devolve a grade à vida
         canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', true); }); 
-        
         canvas.setBackgroundColor('#e0e0e0', canvas.renderAll.bind(canvas));
-    }, 500);
+    }, 100);
 }
 
 // --- INJEÇÃO DINÂMICA DE MELHORIAS NO HTML E LISTAS DE SERVIÇOS ---
@@ -701,7 +718,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#modalSalvar label').forEach(lbl => {
         let t = lbl.innerText.toUpperCase();
         if (t.includes('OC')) lbl.innerText = 'Nº OC / OR (Somente Números):';
-        if (t.includes('ENCARREGADO')) lbl.innerText = 'Nome (Tec 01):';
+        if (t.includes('ENCARREGADO')) lbl.innerText = 'Nome:';
         if (t.includes('LOC')) lbl.innerText = 'AT (Duas Letras Mín/Máx):';
         if (t.includes('CABO')) lbl.innerText = 'Cabo (01 a 20):';
         if (t.includes('PRIMÁRIA')) lbl.innerText = 'Primária (01 a 144):';
