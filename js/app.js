@@ -1,9 +1,8 @@
 // ==========================================
 // CROQUI PRO - VERSÃO DEFINITIVA (APP.JS)
-// Touch Blindado, Sem Ghost Clicks e Travado
+// Pontos de Grade Preservados e UI Blindada
 // ==========================================
 
-// 1. selection: false MATA a caixa de seleção azul travada no celular!
 const canvas = new fabric.Canvas('c', { selection: false, preserveObjectStacking: true });
 let isConnectingMode = false;
 let modoCaboAtivo = null;
@@ -15,6 +14,12 @@ let zoomLevel = 1;
 let tempCTOX = 0;
 let tempCTOY = 0;
 
+let ignoreNextTouch = false;
+function travarToqueFalso() {
+    ignoreNextTouch = true;
+    setTimeout(() => { ignoreNextTouch = false; }, 400);
+}
+
 const customProps = [
     'id_tipo', 'sub_tipo', 'valor_metragem', 'perPixelTargetFind', 'hasControls', 
     'selectable', 'lockScalingX', 'lockScalingY', 'lockRotation', 'snapAngle', 
@@ -22,7 +27,6 @@ const customProps = [
     'p1x', 'p1y', 'p2x', 'p2y'
 ];
 
-// --- HISTÓRICO (DESFAZER / REFAZER) ---
 let historicoCanvas = [];
 let indiceHistorico = -1;
 let navegandoHistorico = false;
@@ -64,7 +68,7 @@ function refazer() {
 
 canvas.on('object:modified', function() { salvarEstado(); });
 
-// --- ÁREA DE DESENHO, ZOOM E TOQUE MOBILE BLINDADO ---
+// --- ÁREA DE DESENHO E TOQUE MOBILE BLINDADO ---
 let touchStartX = 0; let touchStartY = 0; let isActuallyDragging = false;
 
 function initCanvasArea() {
@@ -72,14 +76,14 @@ function initCanvasArea() {
     canvas.setHeight(window.innerHeight - 50); 
     
     canvas.on('mouse:down', function(opt) {
+        if (ignoreNextTouch) return;
         let evt = opt.e;
         if (evt.touches && evt.touches.length > 1) return; 
         touchStartX = evt.clientX || (evt.touches && evt.touches[0].clientX);
         touchStartY = evt.clientY || (evt.touches && evt.touches[0].clientY);
         isActuallyDragging = false;
 
-        // Sempre permite arrastar a tela, a menos que esteja ligando cabos!
-        if (!isConnectingMode) {
+        if (!isConnectingMode && !opt.target) {
             this.isDragging = true; 
             this.lastPosX = touchStartX; 
             this.lastPosY = touchStartY; 
@@ -102,15 +106,14 @@ function initCanvasArea() {
     });
     
     canvas.on('mouse:up', function(opt) {
+        if (ignoreNextTouch) return; 
         this.setViewportTransform(this.viewportTransform);
         this.isDragging = false; 
         
-        // Se arrastou, aborta qualquer clique falso.
         if (isActuallyDragging) return; 
 
         const obj = opt.target; let evt = opt.e;
         
-        // Clicou no vazio = Fecha Menu
         if (!obj) { fecharPieMenu(); return; }
         if (obj.id_tipo === 'rua_livre' || obj.id_tipo === 'simbologia_poste') { fecharPieMenu(); return; }
 
@@ -157,6 +160,7 @@ function initGrid() {
 initGrid();
 
 function novoCroqui() {
+    travarToqueFalso();
     if (confirm("⚠️ ATENÇÃO!\n\nTem certeza que deseja apagar TODO o desenho atual?")) {
         canvas.clear(); historicoCanvas = []; indiceHistorico = -1; atualizarBotoesHistorico();
         isConnectingMode = false; modoCaboAtivo = null; startNode = null; activeTarget = null; listaMateriaisManuais = [];
@@ -168,6 +172,7 @@ function novoCroqui() {
 function updateStatus(text) { document.getElementById('status-bar').innerText = text; }
 
 function toggleSubMenuCabos() {
+    travarToqueFalso();
     let submenu = document.getElementById('submenu-cabos'); let btnConectar = document.getElementById('btnConectar');
     if (isConnectingMode) {
         isConnectingMode = false; modoCaboAtivo = null; resetStartNode(); btnConectar.classList.remove('active'); updateStatus("Modo: Navegação Livre");
@@ -181,6 +186,7 @@ window.addEventListener('click', function(e) {
 });
 
 function toggleModoConexao(tipo) {
+    travarToqueFalso();
     let submenu = document.getElementById('submenu-cabos'); let btnConectar = document.getElementById('btnConectar');
     if (isConnectingMode && modoCaboAtivo === tipo) {
         isConnectingMode = false; modoCaboAtivo = null; resetStartNode(); btnConectar.classList.remove('active'); updateStatus("Modo: Navegação Livre");
@@ -201,14 +207,12 @@ function handleConnectionClick(node) {
         canvas.renderAll();
     } else {
         if (startNode === node) return; 
-        
         desenharCabo(startNode, node, "40", modoCaboAtivo);
         activeTarget = node; clickCoords = { x: node.left, y: node.top }; abrirPieMenu(null, node.id_tipo);
         
         if (startNode && startNode.id_tipo === 'grid_dot') startNode.set('fill', '#bdc3c7'); 
         startNode = node;
         if (startNode.id_tipo === 'grid_dot') startNode.set('fill', '#f1c40f'); 
-        
         canvas.renderAll();
     }
 }
@@ -224,15 +228,14 @@ function desenharCabo(p1, p2, metragem, tipo) {
     let midX = (p1.left + p2.left) / 2, midY = (p1.top + p2.top) / 2;
     let text = new fabric.Text(metragem + "m", { left: midX, top: midY, fontSize: 22, fill: corCabo, backgroundColor: 'rgba(255,255,255,1)', originX: 'center', originY: 'center', fontWeight: 'bold', padding: 6, paintFirst: 'stroke' });
 
-    // BLINDAGEM: Cabos não podem ser arrastados
     let group = new fabric.Group([line, text], { selectable: true, lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'cabo', sub_tipo: tipo, valor_metragem: parseFloat(metragem), perPixelTargetFind: true, p1x: p1.left, p1y: p1.top, p2x: p2.left, p2y: p2.top });
-    
     canvas.add(group); 
     canvas.getObjects().forEach(obj => { if (obj.id_tipo && (obj.id_tipo.startsWith('equipamento') || obj.id_tipo === 'rua_livre' || obj.id_tipo === 'simbologia_poste')) { canvas.bringToFront(obj); } });
     canvas.discardActiveObject(); salvarEstado();
 }
 
 function editarMetragemCabo() {
+    travarToqueFalso();
     if (activeTarget && activeTarget.id_tipo === 'cabo') {
         let novaMetragem = prompt("Editar Metragem (m):", activeTarget.valor_metragem);
         if (novaMetragem !== null && novaMetragem.trim() !== "") {
@@ -259,10 +262,8 @@ function gerarRetiradaAutomatica(cabosVermelhos) {
         if(c.p1x === undefined) return; 
         let isHoriz = Math.abs(c.p2x - c.p1x) >= Math.abs(c.p2y - c.p1y);
         let offX = isHoriz ? 0 : dist; let offY = isHoriz ? dist : 0;
-        
         let seg = { orig: c, p1: { x: c.p1x, y: c.p1y }, p2: { x: c.p2x, y: c.p2y }, g1: { x: c.p1x + offX, y: c.p1y + offY }, g2: { x: c.p2x + offX, y: c.p2y + offY } };
         greenSegments.push(seg);
-
         let k1 = seg.p1.x + "_" + seg.p1.y; let k2 = seg.p2.x + "_" + seg.p2.y;
         if (!nodeMap[k1]) nodeMap[k1] = []; if (!nodeMap[k2]) nodeMap[k2] = [];
         nodeMap[k1].push({ seg: seg, pointKey: 'g1' }); nodeMap[k2].push({ seg: seg, pointKey: 'g2' });
@@ -315,6 +316,7 @@ function gerarRetiradaAutomatica(cabosVermelhos) {
 
 // --- PIE MENU COM TRAVA DE BORDA ---
 function abrirPieMenu(event, targetType) {
+    travarToqueFalso();
     const pie = document.getElementById('pie-menu');
     if (!pie) return;
 
@@ -324,7 +326,6 @@ function abrirPieMenu(event, targetType) {
 
     let screenX = (canvasX * zoom) + panX; let screenY = (canvasY * zoom) + panY + 20; 
 
-    // TRAVA DE BORDA MAGNÉTICA
     let safeMargin = 100; let barBottom = 60; let barTop = 50;      
     if (screenX < safeMargin) screenX = safeMargin;
     if (screenX > window.innerWidth - safeMargin) screenX = window.innerWidth - safeMargin;
@@ -349,6 +350,7 @@ function abrirPieMenu(event, targetType) {
 function fecharPieMenu() { let pie = document.getElementById('pie-menu'); if(pie) pie.classList.add('hidden'); activeTarget = null; }
 
 function abrirSubMenuPoste(x, y) {
+    travarToqueFalso();
     const pie = document.getElementById('pie-menu');
     let zoom = canvas.getZoom(); let panX = canvas.viewportTransform[4]; let panY = canvas.viewportTransform[5];
     let screenX = (x * zoom) + panX; let screenY = (y * zoom) + panY + 50; 
@@ -357,29 +359,36 @@ function abrirSubMenuPoste(x, y) {
     pie.style.left = screenX + 'px'; pie.style.top = screenY + 'px'; pie.classList.remove('hidden');
 }
 
-// --- APAGAR E REMOVER ---
+// --- APAGAR E REMOVER BLINDADO (NÃO APAGA A GRADE) ---
 function apagarSelecionados() {
+    travarToqueFalso();
     let objetosAtivos = canvas.getActiveObjects();
     if (objetosAtivos.length === 0) { if (activeTarget) apagarItem(); else alert("Toque em um item para selecioná-lo antes de apagar."); return; }
-    objetosAtivos.forEach(function(obj) { if (obj.id_tipo === 'grid_dot') return; if (obj.id_tipo === 'equipamento_poste') recriarPontoGrid(obj.left, obj.top); canvas.remove(obj); });
+    objetosAtivos.forEach(function(obj) { 
+        if (obj.id_tipo === 'grid_dot') return; // Nunca apaga a grade
+        canvas.remove(obj); 
+    });
     canvas.discardActiveObject(); fecharPieMenu(); salvarEstado(); 
 }
 
 function apagarItem() {
+    travarToqueFalso();
     if (activeTarget) {
-        if (activeTarget.id_tipo === 'grid_dot') { fecharPieMenu(); return; }
-        if (activeTarget.id_tipo === 'equipamento_poste') recriarPontoGrid(activeTarget.left, activeTarget.top);
+        if (activeTarget.id_tipo === 'grid_dot') { fecharPieMenu(); return; } // Nunca apaga a grade
+        
+        // BÔNUS: Se apagar um poste, limpa a simbologia (Ex: texto ST) atrelada a ele
+        if (activeTarget.id_tipo === 'equipamento_poste') {
+            let simbs = canvas.getObjects().filter(o => o.id_tipo === 'simbologia_poste' && o.left === activeTarget.left && o.top === activeTarget.top - 28);
+            simbs.forEach(s => canvas.remove(s));
+        }
+        
         canvas.remove(activeTarget); fecharPieMenu(); salvarEstado();
     }
 }
 
-function recriarPontoGrid(x, y) {
-    let dot = new fabric.Circle({ left: x, top: y, radius: 4, fill: '#bdc3c7', stroke: 'rgba(0,0,0,0)', strokeWidth: 32, hasControls: false, hasBorders: false, selectable: false, originX: 'center', originY: 'center', id_tipo: 'grid_dot' });
-    canvas.add(dot); canvas.sendToBack(dot);
-}
-
-// --- EQUIPAMENTOS E MATERIAIS BLINDADOS ---
+// --- EQUIPAMENTOS (AGORA ELES NÃO APAGAM OS PONTOS CINZAS) ---
 function inserirEquipamento(tipo) {
+    travarToqueFalso();
     if (!activeTarget) return;
     let posX = (activeTarget.id_tipo === 'cabo') ? clickCoords.x : activeTarget.left;
     let posY = (activeTarget.id_tipo === 'cabo') ? clickCoords.y : activeTarget.top;
@@ -401,7 +410,8 @@ function confirmarCTO() {
     let lblContagem = new fabric.Text(contagem, { fontSize: 11, fill: 'black', top: 22, backgroundColor: 'rgba(255,255,255,0.95)', originX: 'center', originY: 'center', padding: 3 });
 
     let group = new fabric.Group([rect, lblNum, lblContagem], { left: tempCTOX, top: tempCTOY, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_cabo', is_cto: true, cto_num: numCaixa, cto_contagem: contagem });
-    if (activeTarget && activeTarget.id_tipo === 'grid_dot') canvas.remove(activeTarget);
+    
+    // LINHA DELETADA: O ponto cinza agora fica vivo no fundo!
     canvas.add(group); canvas.bringToFront(group);
     
     activeTarget = group; if (isConnectingMode) startNode = group;
@@ -413,7 +423,6 @@ function inserirCEO(x, y) {
     let circle = new fabric.Circle({ radius: 24, fill: isNova ? 'black' : 'white', stroke: 'black', strokeWidth: isNova ? 0 : 3, originX: 'center', originY: 'center' });
     let lbl = new fabric.Text("CEO", { fontSize: 13, fill: isNova ? 'white' : 'black', fontWeight: 'bold', originX: 'center', originY: 'center' });
     let group = new fabric.Group([circle, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_cabo' });
-    if (activeTarget && activeTarget.id_tipo === 'grid_dot') canvas.remove(activeTarget);
     canvas.add(group); activeTarget = group; if (isConnectingMode) startNode = group; fecharPieMenu(); salvarEstado();
 }
 
@@ -423,15 +432,14 @@ function inserirCS(x, y) {
     let rect = new fabric.Rect({ width: 80, height: 50, fill: '#bdc3c7', stroke: '#34495e', strokeWidth: 2, rx: 4, ry: 4, originX: 'center', originY: 'center' });
     let lbl = new fabric.Text(labelText, { fontSize: 18, fill: '#2c3e50', fontWeight: 'bold', fontFamily: 'Roboto', originX: 'center', originY: 'center' });
     let group = new fabric.Group([rect, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    if (activeTarget && activeTarget.id_tipo === 'grid_dot') canvas.remove(activeTarget);
     canvas.add(group); activeTarget = group; if (isConnectingMode) startNode = group; fecharPieMenu(); salvarEstado();
 }
 
 function inserirSubida(x, y) {
     let p = new fabric.Polyline([ {x: -30, y: 0}, {x: -15, y: 0}, {x: -5, y: -25}, {x: 5, y: 25}, {x: 15, y: 0}, {x: 30, y: 0} ], { fill: 'transparent', stroke: 'red', strokeWidth: 4, originX: 'center', originY: 'center' });
-    let bgCircle = new fabric.Circle({ radius: 20, fill: 'rgba(255,255,255,0.7)', originX: 'center', originY: 'center' });
+    // Fundo branco sólido para tapar o ponto cinza que ficou embaixo
+    let bgCircle = new fabric.Circle({ radius: 20, fill: '#ffffff', originX: 'center', originY: 'center' });
     let group = new fabric.Group([bgCircle, p], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    if (activeTarget && activeTarget.id_tipo === 'grid_dot') canvas.remove(activeTarget);
     canvas.add(group); activeTarget = group; if (isConnectingMode) startNode = group; fecharPieMenu(); salvarEstado();
 }
 
@@ -439,11 +447,11 @@ function inserirPosteMapeado(x, y, tipo) {
     let circle = new fabric.Circle({ radius: 18, fill: '#3498db', originX: 'center', originY: 'center' });
     let lbl = new fabric.Text(tipo.replace('Poste ', ''), { fontSize: 13, fill: 'white', fontWeight: 'bold', originX: 'center', originY: 'center' });
     let group = new fabric.Group([circle, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    if (activeTarget && activeTarget.id_tipo === 'grid_dot') canvas.remove(activeTarget);
     canvas.add(group); activeTarget = group; if (isConnectingMode) startNode = group; abrirSubMenuPoste(x, y); salvarEstado();
 }
 
 function addSimbologia(tipo) {
+    travarToqueFalso();
     if (!activeTarget) return; let x = activeTarget.left, y = activeTarget.top - 28, obj;
     if (tipo === 'ST') obj = new fabric.Text('ST', { left: x, top: y, fontSize: 18, fill: '#f39c12', fontWeight: 'bold', stroke: 'white', strokeWidth: 3, paintFirst: 'stroke', originX: 'center', originY: 'center', padding: 10 });
     else if (tipo === 'PONTO') obj = new fabric.Circle({ left: x, top: y, radius: 7, fill: 'black', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', padding: 10 });
@@ -453,15 +461,17 @@ function addSimbologia(tipo) {
 }
 
 function adicionarRuaLivre() {
+    travarToqueFalso();
     let nomeRua = prompt("Digite o nome da Rua/Avenida:", "Rua "); if (!nomeRua) return;
     let vpt = canvas.viewportTransform; let centerX = (-vpt[4] + (canvas.width / 2)) / canvas.getZoom(); let centerY = (-vpt[5] + (canvas.height / 2)) / canvas.getZoom();
     let offsetX = (Math.random() * 100) + 50; let offsetY = (Math.random() * 100) + 50;
     let finalX = centerX + (Math.random() > 0.5 ? offsetX : -offsetX); let finalY = centerY + (Math.random() > 0.5 ? offsetY : -offsetY);
-    let textRua = new fabric.Text(nomeRua.toUpperCase(), { left: finalX, top: finalY, fontSize: 24, fill: '#2980b9', fontWeight: 'bold', fontFamily: 'Roboto', backgroundColor: 'rgba(255,255,255,0.85)', originX: 'center', originY: 'center', selectable: true, hasControls: true, lockScalingX: true, lockScalingY: true, id_tipo: 'rua_livre', snapAngle: 45, snapThreshold: 45 });
+    let textRua = new fabric.Text(nomeRua.toUpperCase(), { left: finalX, top: finalY, fontSize: 24, fill: '#2980b9', fontWeight: 'bold', fontFamily: 'Roboto', backgroundColor: 'rgba(255,255,255,0.85)', originX: 'center', originY: 'center', selectable: true, hasControls: true, lockScalingX: true, lockScalingY: true, lockRotation: false, lockMovementX: false, lockMovementY: false, id_tipo: 'rua_livre', snapAngle: 45, snapThreshold: 45 });
     canvas.add(textRua); canvas.setActiveObject(textRua); salvarEstado();
 }
 
 function registrarMaterialCaixa() {
+    travarToqueFalso();
     if (!activeTarget) return;
     let novoMaterial = prompt("📦 Informe o material gasto nesta caixa:", activeTarget.materiais_gastos || "");
     if (novoMaterial !== null) { activeTarget.materiais_gastos = novoMaterial; salvarEstado(); }
@@ -503,11 +513,33 @@ function atualizarVisorTutorial() {
 }
 window.addEventListener('load', function() { if (!localStorage.getItem('croqui_tutorial_visto')) { setTimeout(abrirTutorial, 800); } });
 
-// --- EXPORTAÇÃO (PDF OTIMIZADO) ---
+// --- MÁGICA DE FORMATAÇÃO (CABO E PRIMÁRIA) ---
+function formatarDuasCasas(val, max) {
+    let n = parseInt(val.replace(/[^0-9]/g, ''));
+    if(isNaN(n)) return "S/I";
+    if(n > max) n = max; if(n < 1) n = 1;
+    return String(n).padStart(2, '0');
+}
+
+// --- EXPORTAÇÃO (PDF COM LIMITES DE REGRAS DE NEGÓCIO) ---
 function confirmarSalvar() {
-    let oc = document.getElementById('inputOC').value || "S/I"; let causa = document.getElementById('inputCausa').value || "S/I"; let motivo = document.getElementById('inputMotivo').value || "S/I"; 
-    let encarregado = document.getElementById('inputEncarregado').value || "S/I"; let re = document.getElementById('inputRE').value || "S/I"; let locCT = document.getElementById('inputLocCT').value || "S/I"; 
-    let cabo = document.getElementById('inputCabo').value || "S/I"; let primaria = document.getElementById('inputPrimaria').value || "S/I"; let placa = document.getElementById('inputPlaca').value || "S/I"; 
+    let oc = document.getElementById('inputOC').value.replace(/[^0-9]/g, '') || "S/I"; 
+    let causa = document.getElementById('inputCausa').value || "S/I"; 
+    let motivo = document.getElementById('inputMotivo').value || "S/I"; 
+    let encarregado = document.getElementById('inputEncarregado').value || "S/I"; 
+    let re = document.getElementById('inputRE').value || "S/I"; 
+    let placa = document.getElementById('inputPlaca').value || "S/I"; 
+    
+    // AT só aceita 2 Letras em Maiúsculo
+    let atBruta = document.getElementById('inputLocCT').value || "S/I"; 
+    let locCT = atBruta !== "S/I" ? atBruta.toUpperCase().replace(/[^A-Z]/g, '').substring(0,2) : "S/I";
+    
+    // Cabo (Max 20) e Primária (Max 144) com 2 casas
+    let caboRaw = document.getElementById('inputCabo').value;
+    let cabo = caboRaw ? formatarDuasCasas(caboRaw, 20) : "S/I"; 
+    let primariaRaw = document.getElementById('inputPrimaria').value;
+    let primaria = primariaRaw ? formatarDuasCasas(primariaRaw, 144) : "S/I"; 
+    
     if (encarregado === "S/I" || re === "S/I" || oc === "S/I") { alert("Preencha ao menos OC/OR, Encarregado e RE."); return; }
     
     let idProj = `OC_${oc}_CABO_${cabo}`; let hoje = new Date().toLocaleDateString('pt-BR'); fecharModais();
@@ -527,20 +559,26 @@ function confirmarSalvar() {
 
     let strEndereco = ruasExtraidas.length > 0 ? ruasExtraidas.join(" / ") : "S/I"; let strCaixas = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.num).join(", ") : "S/I"; let strDist = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.cont).join(", ") : "S/I";
 
+    let vptOriginal = canvas.viewportTransform.slice(); canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     var originalWidth = canvas.width; var originalHeight = canvas.height; var exportWidth = 1280; var exportHeight = 720;
-    canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', false); }); canvas.setWidth(exportWidth); canvas.setHeight(exportHeight); canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
+    
+    // Oculta a grade perfeitamente para a foto do PDF
+    canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', false); }); 
+    
+    canvas.setWidth(exportWidth); canvas.setHeight(exportHeight); canvas.setBackgroundColor('white', canvas.renderAll.bind(canvas));
 
-    var drawnObjects = canvas.getObjects().filter(o => o.id_tipo !== 'grid_dot');
+    var drawnObjects = canvas.getObjects().filter(o => o.id_tipo !== 'grid_dot'); var g = null; var origGroupState = {};
     if(drawnObjects.length > 0) {
-        var g = new fabric.Group(drawnObjects);
+        g = new fabric.Group(drawnObjects); origGroupState = { left: g.left, top: g.top, scaleX: g.scaleX, scaleY: g.scaleY };
         var scale = Math.min((exportWidth - 100) / g.width, (exportHeight - 120) / g.height); if(scale > 2.0) scale = 2.0; 
-        g.scale(scale); g.set({ left: exportWidth / 2, top: 400, originX: 'center', originY: 'center' }); g.setCoords(); canvas.add(g); g.toActiveSelection(); canvas.discardActiveObject();
+        g.scale(scale); g.set({ left: exportWidth / 2, top: 400, originX: 'center', originY: 'center' }); 
+        g.setCoords(); canvas.add(g); canvas.renderAll();
     }
 
     var headerBg = new fabric.Rect({ left: 0, top: 0, width: exportWidth, height: 85, fill: '#ffffff', selectable: false }); var headerLine = new fabric.Line([0, 85, exportWidth, 85], { stroke: '#bdc3c7', strokeWidth: 2, selectable: false });
-    let linha1 = `OC/OR: ${oc}   |   CAIXA: ${strCaixas}   |   DATA: ${hoje}   |   EQUIPE: ${encarregado.toUpperCase()}   |   RE: ${re}   |   PLACA: ${placa.toUpperCase()}`;
+    let linha1 = `OC/OR: ${oc}   |   CAIXA: ${strCaixas}   |   DATA: ${hoje}   |   NOME (TEC 01): ${encarregado.toUpperCase()}   |   RE: ${re}   |   PLACA: ${placa.toUpperCase()}`;
     let linha2 = `ENDEREÇO: ${strEndereco}   |   CAUSA: ${causa}   |   MOTIVO: ${motivo}`;
-    let linha3 = `REDE   ->   LOC/CT: ${locCT}   |   CABO: ${cabo}   |   PRIMÁRIA: ${primaria}   |   DISTRIBUIÇÃO: ${strDist}`;
+    let linha3 = `REDE   ->   AT: ${locCT}   |   CABO: ${cabo}   |   PRIMÁRIA: ${primaria}   |   DISTRIBUIÇÃO: ${strDist}`;
     
     var txtTopo1 = new fabric.Text(linha1, { fontSize: 15, fill: '#660099', fontWeight: 'bold', left: 20, top: 12, selectable: false });
     var txtTopo2 = new fabric.Text(linha2, { fontSize: 14, fill: '#333', fontWeight: 'bold', left: 20, top: 36, selectable: false });
@@ -554,13 +592,226 @@ function confirmarSalvar() {
             var imgData = canvas.toDataURL({ format: 'png', quality: 1.0 }); const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
             doc.addImage(imgData, 'PNG', 0, 21.5, 297, 167); doc.addPage('a4', 'portrait');
             doc.setFontSize(16); doc.setTextColor(102, 0, 153); doc.text("Relatório de Quantitativos e Serviços", 14, 20);
-            let tableData = [ ["NÚMERO OC/OR", oc], ["CAIXA", strCaixas], ["ENDEREÇO", strEndereco], ["CAUSA", causa], ["MOTIVO", motivo], ["LOC / CT", locCT], ["CABO", cabo], ["PRIMÁRIA", primaria], ["DISTRIBUIÇÃO", strDist], ["ENCARREGADO", encarregado], ["RE (80)", re], ["PLACA DO VEÍCULO", placa], ["---", "---"], ["CABO INSTALADO AUTO", totais.redeInstalada + " m"], ["CABO RETIRADO AUTO", totais.redeRetirada + " m"] ];
+            
+            let tableData = [ 
+                ["NÚMERO OC/OR", oc], ["CAIXA", strCaixas], ["ENDEREÇO", strEndereco], 
+                ["CAUSA", causa], ["MOTIVO", motivo], ["AT", locCT], 
+                ["CABO", cabo], ["PRIMÁRIA", primaria], ["DISTRIBUIÇÃO", strDist], 
+                ["NOME (TEC 01)", encarregado], ["RE (80)", re], ["PLACA DO VEÍCULO", placa], 
+                ["---", "---"], ["CABO INSTALADO AUTO", totais.redeInstalada + " m"], ["CABO RETIRADO AUTO", totais.redeRetirada + " m"] 
+            ];
+            
             if (totais.itensExtras.length > 0) { tableData.push(["---", "---"]); tableData.push(["CÓDIGOS / SERVIÇOS EXTRAS", "QUANTIDADE"]); totais.itensExtras.forEach(e => { tableData.push([e.item, e.qtd]); }); }
             doc.autoTable({ startY: 28, head: [['Informação / Serviço', 'Valor / Quantidade']], body: tableData, theme: 'striped', headStyles: { fillColor: [102, 0, 153] }, styles: { fontSize: 11, cellPadding: 4 }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 90 } } });
             doc.save(`${idProj}.pdf`); alert("PDF gerado com sucesso! 🎉");
         } catch (erro) { console.error(erro); alert("Erro ao gerar PDF."); }
         
-        canvas.remove(headerBg, headerLine, txtTopo1, txtTopo2, txtTopo3, txtResumoCabos); canvas.setWidth(originalWidth); canvas.setHeight(originalHeight);
-        canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', true); }); canvas.setBackgroundColor('#e0e0e0', canvas.renderAll.bind(canvas));
+        canvas.remove(headerBg, headerLine, txtTopo1, txtTopo2, txtTopo3, txtResumoCabos); 
+        if(g) { g.set(origGroupState); g.setCoords(); g.toActiveSelection(); canvas.discardActiveObject(); }
+        canvas.setWidth(originalWidth); canvas.setHeight(originalHeight); canvas.setViewportTransform(vptOriginal); 
+        
+        // Devolve a grade à vida
+        canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', true); }); 
+        
+        canvas.setBackgroundColor('#e0e0e0', canvas.renderAll.bind(canvas));
     }, 500);
 }
+
+// --- INJEÇÃO DINÂMICA DE MELHORIAS NO HTML E LISTAS DE SERVIÇOS ---
+window.addEventListener('DOMContentLoaded', () => {
+    // 1. Transforma Causa e Motivo em Selects Inteligentes e Interligados (Códigos limpos na tela, completos no PDF)
+    let inputCausa = document.getElementById('inputCausa');
+    if (inputCausa && inputCausa.tagName === 'INPUT') {
+        let selectCausa = document.createElement('select'); selectCausa.id = 'inputCausa'; selectCausa.className = inputCausa.className;
+        selectCausa.innerHTML = `
+            <option value="">Selecione a Causa...</option>
+            <option value="ATENUAÇÃO">ATENUAÇÃO</option>
+            <option value="FIBRA QUEBRADA">FIBRA QUEBRADA</option>
+            <option value="CABO">CABO</option>
+            <option value="SEM DEFEITO REDE">SEM DEFEITO REDE</option>
+        `;
+        inputCausa.parentNode.replaceChild(selectCausa, inputCausa);
+
+        let inputMotivo = document.getElementById('inputMotivo');
+        let selectMotivo = document.createElement('select'); selectMotivo.id = 'inputMotivo'; selectMotivo.className = inputMotivo.className;
+        selectMotivo.innerHTML = '<option value="">Selecione a Causa primeiro...</option>';
+        inputMotivo.parentNode.replaceChild(selectMotivo, inputMotivo);
+
+        selectCausa.addEventListener('change', function() {
+            const map = {
+                "ATENUAÇÃO": ["CONECTOR/BORNE", "INFILTRAÇÃO", "CABO CROCADO", "ALÇA QUEBRADA", "ACOMODAÇÃO", "IMPUREZA/LIMPEZA", "FUSÃO", "DROP COM DEFEITO", "CORDÃO DGOI/CDOE", "CORDÃO TX"],
+                "FIBRA QUEBRADA": ["TERCEIROS", "INFILTRAÇÃO AÉREO", "FIBRA CURTA", "INFILTRAÇÃO SUBTERRÂNEO", "ANIMAIS", "TÉCNICO ANTERIOR", "DROP ROMPIDO"],
+                "CABO": ["CARGA ALTA", "TROCA DE POSTE", "PODA DE ÁRVORE", "QUEDA DE ÁRVORE", "FURTO METÁLICO", "OBRAS TERCEIROS", "LINHA DE PIPA", "VANDALISMO", "DESCARGA"],
+                "SEM DEFEITO REDE": ["FALTA DE ENERGIA", "TRANSMISSÃO N1", "ENCONTRADO OK"]
+            };
+            selectMotivo.innerHTML = '<option value="">Selecione o Motivo...</option>';
+            if(map[this.value]) { map[this.value].forEach(m => { let opt = document.createElement('option'); opt.value = m; opt.innerText = m; selectMotivo.appendChild(opt); }); }
+        });
+    }
+
+    // 2. Injeta a Tabela Oficial de Serviços e Códigos (Faturamento)
+    let selectMaterial = document.getElementById('selectMaterialBase');
+    if (selectMaterial) {
+        selectMaterial.innerHTML = `
+            <option value="">Selecione um Serviço/Material...</option>
+            <option value="291293 - LOC. C/ABERTURA SUB">LOC. C/ABERTURA SUB</option>
+            <option value="291390 - LOC. S/ABERTURA">LOC. S/ABERTURA</option>
+            <option value="291382 - LOC. C/ABERTURA AEREO">LOC. C/ABERTURA AEREO</option>
+            <option value="291404 - Encerramento de TA em rede FTTx">Encerramento de TA em rede FTTx</option>
+            <option value="294004 - PONTEAMENTO">PONTEAMENTO</option>
+            <option value="292290 - REAB AEREO">REAB AEREO</option>
+            <option value="292303 - REAB SUB">REAB SUB</option>
+            <option value="290832 - Emenda de FO em caixa de emenda existente">Emenda de FO em caixa de emenda existente</option>
+            <option value="290689 - Emenda de FO">Emenda de FO</option>
+            <option value="294071 - MONTAGEM CONECTOR">MONTAGEM CONECTOR</option>
+            <option value="293075 - SUBSTITUIR CTOP PRÉ CONEC.">SUBSTITUIR CTOP PRÉ CONEC.</option>
+            <option value="292281 - INST. CX SEM FUSÃO">INST. CX SEM FUSÃO</option>
+            <option value="292257 - INST. CX COM FUSÃO">INST. CX COM FUSÃO</option>
+            <option value="292273 - INST. CX COM FUSÃO SUBTERRANEA">INST. CX COM FUSÃO SUBTERRANEA</option>
+            <option value="291220 - Preparar tubo em cabo de F.O, sem sangria">Preparar tubo em cabo de F.O, sem sangria</option>
+            <option value="291238 - Preparar tubo em cabo de F.O. com">Preparar tubo em cabo de F.O. com</option>
+            <option value="293407 - Instalar DROP de 100mts">Instalar DROP de 100mts</option>
+            <option value="293415 - Instalar DROP de 150mts">Instalar DROP de 150mts</option>
+            <option value="293423 - Instalar DROP de 200mts">Instalar DROP de 200mts</option>
+            <option value="293431 - Instalar DROP de 250mts">Instalar DROP de 250mts</option>
+            <option value="293440 - Instalar DROP de 300mts">Instalar DROP de 300mts</option>
+            <option value="293458 - Instalar DROP de 400mts">Instalar DROP de 400mts</option>
+            <option value="293466 - Instalar DROP de 500mts">Instalar DROP de 500mts</option>
+            <option value="293474 - Instalar DROP de 600mts">Instalar DROP de 600mts</option>
+            <option value="292249 - Instalação de cabo óptico/drop em roldana">Instalação de cabo óptico/drop em roldana</option>
+            <option value="293091 - Retirada de cabo óptico ASU em roldana (m)">Retirada de cabo óptico ASU em roldana (m)</option>
+            <option value="292222 - Instalar cabo de FO autossustentado">Instalar cabo de FO autossustentado</option>
+            <option value="290777 - Retirar cabo de FO autossustentado">Retirar cabo de FO autossustentado</option>
+            <option value="292214 - Instalar cabo de FO em duto ou subduto">Instalar cabo de FO em duto ou subduto</option>
+            <option value="290050 - Retirar cabo de FO em duto ou subduto">Retirar cabo de FO em duto ou subduto</option>
+            <option value="290115 - Instalar cabo de FO em mensageiro">Instalar cabo de FO em mensageiro</option>
+            <option value="290131 - Retirar cabo de FO de mensageiro">Retirar cabo de FO de mensageiro</option>
+            <option value="291246 - ADICIONAL DE CABO FO">ADICIONAL DE CABO FO</option>
+            <option value="294098 - SPIRAL TUBE">SPIRAL TUBE</option>
+            <option value="223859 - REMANEJ. DE CAIXAS DO POSTE PRA CORDOALHA">REMANEJ. DE CAIXAS DO POSTE PRA CORDOALHA</option>
+            <option value="290262 - REPUXE DE CABO FO">REPUXE DE CABO FO</option>
+            <option value="292265 - CAIXA DE ETREMO">CAIXA DE ETREMO</option>
+            <option value="291213 - HUB DE PONTA">HUB DE PONTA</option>
+            <option value="291205 - HUB DE PASSAGEM">HUB DE PASSAGEM</option>
+            <option value="Outro">Outro (Digitar manualmente)</option>
+        `;
+    }
+
+    // 3. Renomeia os Labels sem você precisar mexer no HTML
+    document.querySelectorAll('#modalSalvar label').forEach(lbl => {
+        let t = lbl.innerText.toUpperCase();
+        if (t.includes('OC')) lbl.innerText = 'Nº OC / OR (Somente Números):';
+        if (t.includes('ENCARREGADO')) lbl.innerText = 'Nome (Tec 01):';
+        if (t.includes('LOC')) lbl.innerText = 'AT (Duas Letras Mín/Máx):';
+        if (t.includes('CABO')) lbl.innerText = 'Cabo (01 a 20):';
+        if (t.includes('PRIMÁRIA')) lbl.innerText = 'Primária (01 a 144):';
+    });
+
+    // 4. Aplica regras e máscaras de preenchimento rigorosas
+    let inpOC = document.getElementById('inputOC'); if(inpOC) inpOC.type = 'number';
+    let inpLoc = document.getElementById('inputLocCT'); 
+    if(inpLoc) { inpLoc.maxLength = 2; inpLoc.addEventListener('input', function() { this.value = this.value.toUpperCase().replace(/[^A-Z]/g, ''); }); }
+    
+    let inpCabo = document.getElementById('inputCabo');
+    if(inpCabo) { inpCabo.type = 'number'; inpCabo.addEventListener('blur', function() { if(this.value) this.value = formatarDuasCasas(this.value, 20); }); }
+
+    let inpPri = document.getElementById('inputPrimaria');
+    if(inpPri) { inpPri.type = 'number'; inpPri.addEventListener('blur', function() { if(this.value) this.value = formatarDuasCasas(this.value, 144); }); }
+
+    // 5. Ajuste Responsivo (Mobile) MÁGICO para alinhar os campos e diminuir a Qtd 
+    let style = document.createElement('style');
+    style.innerHTML = `
+        /* Estilização universal limpa */
+        #modalSalvar input, #modalSalvar select {
+            border: 1px solid #ccd0d5;
+            border-radius: 4px;
+            padding: 8px 10px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background-color: #fff;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            max-width: 100%;
+        }
+
+        #inputOC, #inputCausa { width: 48%; display: inline-block; }
+        #inputMotivo { width: 100%; display: block; margin-top: 10px; }
+
+        /* MAGIA DO FLEXBOX NA LINHA DE MATERIAIS */
+        .linha-materiais-flex {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 5px !important;
+            width: 100% !important;
+            margin-top: 10px !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important; /* Trava qualquer vazamento */
+        }
+
+        #selectMaterialBase {
+            flex: 1 1 auto !important; 
+            width: 10px !important; /* Permite que o select encolha */
+            min-width: 0 !important; 
+            height: 40px !important; 
+            text-overflow: ellipsis !important; 
+            white-space: nowrap !important;
+            margin-bottom: 0 !important; 
+        }
+        
+        /* Remove as setinhas nativas chatas que roubam espaço da Qtd */
+        #manualQtd::-webkit-inner-spin-button,
+        #manualQtd::-webkit-outer-spin-button {
+            -webkit-appearance: none !important;
+            margin: 0 !important;
+        }
+
+        #manualQtd {
+            -moz-appearance: textfield !important; /* Para o Firefox */
+            flex: 0 0 40px !important; /* Tamanho exato e inegociável em pixels */
+            width: 40px !important;
+            height: 40px !important;
+            text-align: center !important;
+            padding: 0 5px !important;
+            background-color: #fff;
+            border: 1px solid #ccd0d5;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .btn-roxo-travado {
+            flex: 0 0 40px !important; /* Quadrado perfeito 40x40 */
+            width: 40px !important;
+            height: 40px !important;
+            background-color: #660099 !important; 
+            color: #ffffff !important;
+            border: none !important;
+            border-radius: 4px !important;
+            font-size: 20px !important;
+            font-weight: bold !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            padding: 0 !important;
+            flex-shrink: 0;
+        }
+        
+        #manualItem { width: 100%; margin-top: 8px; }
+    `;
+    document.head.appendChild(style);
+
+    // Caça a linha onde estão o Select, a Quantidade e o Botão, e blinda eles!
+    if (selectMaterial && selectMaterial.parentNode) {
+        let containerLinha = selectMaterial.parentNode;
+        containerLinha.className = 'linha-materiais-flex';
+        
+        // Pega o botão dentro desse container e força a nova classe nele
+        let btnAdd = containerLinha.querySelector('button');
+        if (btnAdd) {
+            btnAdd.className = 'btn-roxo-travado';
+            btnAdd.innerText = '+';
+        }
+    }
+});
