@@ -708,6 +708,11 @@ function confirmarSalvar() {
     
     if (encarregado === "S/I" || re === "S/I" || oc === "S/I") { alert("Preencha ao menos OC/OR, Encarregado e RE."); return; }
     
+    // Segurança: retirada informada no mapa que ainda não está no desenho entra antes do PDF.
+    if (typeof croquiTemMapa === 'function' && croquiTemMapa() && typeof retiradaDesatualizada === 'function' && retiradaDesatualizada()) {
+        if (confirm(`A retirada informada no mapa (${totalRetirado(mapeamento)}m) ainda não está no croqui.\n\nAtualizar o croqui antes de gerar o PDF?`)) gerarCroquiDoMapa(true);
+    }
+
     let idProj = `OC_${oc}_CABO_${cabo}`.replace(/[\\/:*?"<>|]/g, ''); let hoje = new Date().toLocaleDateString('pt-BR'); fecharModais();
 
     let cabosInstalados = canvas.getObjects().filter(o => o.id_tipo === 'cabo' && o.sub_tipo === 'instalado');
@@ -830,7 +835,7 @@ function confirmarSalvar() {
                 ["CAUSA", causa], ["MOTIVO", motivo], ["AT", locCT], 
                 ["CABO", cabo], ["PRIMÁRIA", primaria], ["DISTRIBUIÇÃO", strDist], 
                 ["NOME (TEC 01)", encarregado], ["RE (80)", re], ["PLACA DO VEÍCULO", placa], 
-                ["---", "---"], ["CABO INSTALADO AUTO", totais.redeInstalada + " m"], ["CABO RETIRADO AUTO", totais.redeRetirada + " m"] 
+                ["---", "---"], ["CABO LANÇADO (soma dos trechos)", totais.redeInstalada + " m"], ["CABO RETIRADO (soma dos trechos)", totais.redeRetirada + " m"] 
             ];
             
             if (totais.itensExtras.length > 0) { tableData.push(["---", "---"]); tableData.push(["CÓDIGOS / SERVIÇOS EXTRAS", "QUANTIDADE"]); totais.itensExtras.forEach(e => { tableData.push([e.item, e.qtd]); }); }

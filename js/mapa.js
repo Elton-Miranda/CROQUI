@@ -590,7 +590,7 @@ function abrirPainelRetirada(depois) {
         painel = document.createElement('div'); painel.id = 'painelRetirada'; painel.className = 'sheet-fundo';
         painel.innerHTML = `<div class="sheet">
             <div class="sheet-titulo" id="retiradaTitulo">Retirada de cabo</div>
-            <div class="sheet-sub">Informe do poste ao poste onde o cabo antigo foi retirado. Pode adicionar mais de um trecho.</div>
+            <div class="sheet-sub">Escolha do poste ao poste onde o cabo antigo foi retirado e toque em Confirmar. Para mais de um trecho, toque em ＋ antes de escolher o próximo.</div>
             <div class="retirada-faixa">
                 <span>Do poste</span><select id="retiradaDe" class="smart-select"></select>
                 <span>até</span><select id="retiradaAte" class="smart-select"></select>
@@ -613,18 +613,23 @@ function abrirPainelRetirada(depois) {
     abrirPainel('painelRetirada');
 }
 
+// Adiciona a faixa escolhida nos dois seletores. Devolve true se entrou (ou se já estava na lista).
 function adicionarRetirada() {
     const a = Number(document.getElementById('retiradaDe').value), b = Number(document.getElementById('retiradaAte').value);
     const erro = document.getElementById('retiradaErro');
-    if (a === b) { erro.innerText = 'Escolha dois postes diferentes.'; return; }
+    if (a === b) { erro.innerText = 'Escolha dois postes diferentes.'; return false; }
     const r = criarRetirada(mapeamento, a, b);
-    if (!r) { erro.innerText = 'Esses postes não estão ligados por trechos de cabo.'; return; }
+    if (!r) { erro.innerText = 'Esses postes não estão ligados por trechos de cabo.'; return false; }
     // Vão que já está numa retirada não entra de novo.
     const jaTem = new Set(); mapeamento.retiradas.forEach(x => x.trechos.forEach(t => { jaTem.add(t.de + '-' + t.para); jaTem.add(t.para + '-' + t.de); }));
-    if (r.trechos.some(t => jaTem.has(t.de + '-' + t.para))) { erro.innerText = 'Parte desse trecho já está na retirada.'; return; }
+    if (r.trechos.every(t => jaTem.has(t.de + '-' + t.para))) { erro.innerText = ''; return true; } // já adicionada
+    if (r.trechos.some(t => jaTem.has(t.de + '-' + t.para))) { erro.innerText = 'Parte desse trecho já está na retirada.'; erro.dataset.motivo = 'repetido'; return false; }
     erro.innerText = '';
     mapeamento.retiradas.push(r);
+    // Seletores voltam ao "neutro": o próximo Confirmar só fecha, sem repetir a faixa.
+    document.getElementById('retiradaDe').value = String(b);
     salvarMapeamento(); desenharListaRetirada(); desenharMapeamento();
+    return true;
 }
 
 function desenharListaRetirada() {
@@ -654,9 +659,37 @@ function fecharRetirada() {
     salvarMapeamento(); desenharMapeamento();
     fecharPainel('painelRetirada');
     const depois = aposRetirada; aposRetirada = null;
-    if (depois) depois();
+    if (depois) { depois(); return; }
+    // Retirada mudou depois do croqui já gerado: o desenho precisa acompanhar.
+    if (typeof croquiTemMapa === 'function' && croquiTemMapa() && retiradaDesatualizada()
+        && confirm('Atualizar o croqui com a retirada informada?')) gerarCroquiDoMapa(true);
 }
-function confirmarRetirada() { fecharRetirada(); }
+
+// "Confirmar" também adiciona a faixa que está escolhida nos seletores
+// (antes era preciso tocar no ＋, e quem não tocava ficava sem retirada).
+function confirmarRetirada() {
+    const de = document.getElementById('retiradaDe').value, ate = document.getElementById('retiradaAte').value;
+    const erro = document.getElementById('retiradaErro'); erro.dataset.motivo = '';
+    if (de !== ate && !adicionarRetirada()) {
+        // Faixa que repete parte da lista: a lista já cobre esse trecho, então só fecha.
+        if (!(erro.dataset.motivo === 'repetido' && mapeamento.retiradas.length)) return;
+        erro.innerText = '';
+    }
+    else if (!mapeamento.retiradas.length) {
+        document.getElementById('retiradaErro').innerText = 'Escolha do poste ao poste, ou toque em "Não houve retirada".';
+        return;
+    }
+    fecharRetirada();
+}
+
+// O croqui na tela tem a mesma retirada do mapeamento?
+function retiradaDesatualizada() {
+    if (typeof canvas === 'undefined') return false;
+    const noCroqui = canvas.getObjects().filter(o => o.retirada_mapa).map(o => Number(o.valor_metragem) || 0);
+    const noMapa = [];
+    (mapeamento.retiradas || []).forEach(r => r.trechos.forEach(t => noMapa.push(Number(t.metragem) || 0)));
+    return noCroqui.length !== noMapa.length || noCroqui.reduce((a, b) => a + b, 0) !== noMapa.reduce((a, b) => a + b, 0);
+}
 function semRetirada() {
     if (mapeamento.retiradas.length && !confirm('Apagar os trechos de retirada informados?')) return;
     mapeamento.retiradas = [];
@@ -1099,12 +1132,13 @@ function planejarCroqui(m, pos) {
     return { retiradas, notas, ruas, ocupados };
 }
 
-function gerarCroquiDoMapa() {
+// semPerguntar = true quando o próprio app está atualizando o croqui (ex.: retirada mudou).
+function gerarCroquiDoMapa(semPerguntar) {
     if (mapeamento.pontos.length < 2) { alert('Marque pelo menos 2 postes para gerar o croqui.'); return; }
     // Pergunta da retirada (uma vez por mapeamento; dá para mudar depois no menu ⋯).
     if (!mapeamento.retiradaRespondida) { abrirPainelRetirada(() => gerarCroquiDoMapa()); return; }
     const temDesenho = canvas.getObjects().some(o => o.id_tipo && o.id_tipo !== 'marcador');
-    if (temDesenho && !confirm('Já existe um desenho no croqui.\n\nSubstituir pelo desenho gerado do mapa?')) return;
+    if (temDesenho && semPerguntar !== true && !confirm('Já existe um desenho no croqui.\n\nSubstituir pelo desenho gerado do mapa?')) return;
 
     const { pos, projecao } = projetarPontos(mapeamento);
     mapeamento.projecao = projecao;

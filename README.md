@@ -55,4 +55,4 @@ git push
 
 ## Atualizando o app
 
-Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.3.1`). Assim os celulares descartam a cópia antiga guardada.
+Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.3.2`). Assim os celulares descartam a cópia antiga guardada.
