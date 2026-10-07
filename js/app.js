@@ -41,7 +41,7 @@ const customProps = [
     'id_tipo', 'sub_tipo', 'valor_metragem', 'perPixelTargetFind', 'hasControls', 
     'selectable', 'lockScalingX', 'lockScalingY', 'lockRotation', 'snapAngle', 
     'snapThreshold', 'is_cto', 'cto_num', 'cto_contagem', 'materiais_gastos', 
-    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada', 'cto_tipo', 'ceo_nova', 'ponto_mapa', 'ponto_numero'
+    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada', 'cto_tipo', 'ceo_nova', 'ponto_mapa', 'ponto_numero', 'rua_mapa'
 ];
 
 let historicoCanvas = [];
@@ -438,7 +438,9 @@ function gerarRetiradaAutomatica(cabosVermelhos) {
         }
     });
 
-    let ruas = canvas.getObjects().filter(o => o.id_tipo === 'rua_livre'); let cabos = canvas.getObjects().filter(o => o.id_tipo === 'cabo' || o.id_tipo === 'conector_retirada');
+    // Afasta dos cabos só os nomes de rua escritos à mão. Os gerados do mapa já
+    // ficam do lado oposto ao da retirada (antes eles eram empurrados para longe da rua).
+    let ruas = canvas.getObjects().filter(o => o.id_tipo === 'rua_livre' && !o.rua_mapa); let cabos = canvas.getObjects().filter(o => o.id_tipo === 'cabo' || o.id_tipo === 'conector_retirada');
     ruas.forEach(rua => {
         let safe = false; let attempts = 0;
         while (!safe && attempts < 8) {
@@ -737,6 +739,9 @@ function confirmarSalvar() {
 
         canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); // Reseta câmera
         resetStartNode(); mostrarGrade = false; 
+        // Croqui gerado do mapeamento: a página 1 sai com o mapa da região por baixo.
+        let usaMapa = typeof croquiTemMapa === 'function' && croquiTemMapa();
+        let transformExport = null;
 
         // 2. Transforma em Grupo REAL (Remove os soltos e impede duplicatas e cortes na foto)
         var drawnObjects = canvas.getObjects().filter(o => o.id_tipo !== 'marcador'); 
@@ -747,6 +752,9 @@ function confirmarSalvar() {
             g = sel.toGroup(); // Suga tudo para dentro do grupo Oficialmente
             origGroupState = { left: g.left, top: g.top, scaleX: g.scaleX, scaleY: g.scaleY };
             var scale = Math.min((exportWidth - 100) / g.width, (exportHeight - 120) / g.height); if(scale > 2.0) scale = 2.0; 
+            // Com mapa de fundo: não amplia além do que o mapa aguenta, e mostra as ruas em volta.
+            if (usaMapa) scale = Math.min(scale, escalaMaximaNoMapa());
+            transformExport = { cx0: g.left + g.width / 2, cy0: g.top + g.height / 2, escalaExport: scale, ex0: exportWidth / 2, ey0: 400, larg: exportWidth, alt: exportHeight, topo: 85 };
             g.scale(scale); g.set({ left: exportWidth / 2, top: 400, originX: 'center', originY: 'center' }); 
             g.setCoords();
         }
@@ -756,7 +764,7 @@ function confirmarSalvar() {
         let origWrapStyle = wrap ? wrap.getAttribute('style') : '';
         if (wrap) { wrap.setAttribute('style', `width: ${exportWidth}px !important; height: ${exportHeight}px !important; max-width: none !important;`); }
         canvas.setWidth(exportWidth); canvas.setHeight(exportHeight); 
-        canvas.setBackgroundColor('white', null);
+        canvas.setBackgroundColor(usaMapa ? '' : 'white', null); // transparente para o mapa aparecer por baixo
 
         var headerBg = new fabric.Rect({ left: 0, top: 0, width: exportWidth, height: 85, fill: '#ffffff', selectable: false }); var headerLine = new fabric.Line([0, 85, exportWidth, 85], { stroke: '#bdc3c7', strokeWidth: 2, selectable: false });
         let linha1 = `OC/OR: ${oc}   |   CAIXA: ${strCaixas}   |   DATA: ${hoje}   |   NOME (TEC 01): ${encarregado.toUpperCase()}   |   RE: ${re}   |   PLACA: ${placa.toUpperCase()}`;
@@ -766,16 +774,46 @@ function confirmarSalvar() {
         var txtTopo1 = new fabric.Text(linha1, { fontSize: 15, fill: '#660099', fontWeight: 'bold', left: 20, top: 12, selectable: false });
         var txtTopo2 = new fabric.Text(linha2, { fontSize: 14, fill: '#333', fontWeight: 'bold', left: 20, top: 36, selectable: false });
         var txtTopo3 = new fabric.Text(linha3, { fontSize: 14, fill: '#333', left: 20, top: 60, selectable: false });
-        var txtResumoCabos = new fabric.Text(`Lançamento: ${totais.redeInstalada}m   |   Retirada: ${totais.redeRetirada}m`, { fontSize: 15, fill: '#27ae60', fontWeight: 'bold', left: exportWidth - 20, top: 36, originX: 'right', selectable: false });
+        // Na linha 3 (mais curta): na linha 2 o endereço comprido ficava por baixo deste texto.
+        var txtResumoCabos = new fabric.Text(`Lançamento: ${totais.redeInstalada}m   |   Retirada: ${totais.redeRetirada}m`, { fontSize: 15, fill: '#27ae60', fontWeight: 'bold', left: exportWidth - 20, top: 60, originX: 'right', selectable: false });
 
         canvas.add(headerBg, headerLine, txtTopo1, txtTopo2, txtTopo3, txtResumoCabos);
         canvas.renderAll();
 
-        // 4. Bate a foto gigante e constrói o PDF
+        // 4. Bate a foto. Com mapa: duas fotos transparentes, sem e com os nomes de rua do croqui
+        //    (o mapa já mostra os nomes; a com nomes é a reserva se o mapa não carregar).
+        var imgData = null, fotoSemRuas = null;
         try {
-            var imgData = canvas.toDataURL({ format: 'png', quality: 1.0 }); 
+            imgData = canvas.toDataURL({ format: 'png', quality: 1.0 });
+            if (usaMapa && g) {
+                let ruasNoGrupo = g.getObjects().filter(o => o.id_tipo === 'rua_livre');
+                ruasNoGrupo.forEach(o => o.set('visible', false)); g.set('dirty', true); canvas.renderAll();
+                fotoSemRuas = canvas.toDataURL({ format: 'png', quality: 1.0 });
+                ruasNoGrupo.forEach(o => o.set('visible', true)); g.set('dirty', true);
+            }
+        } catch (erro) { console.error(erro); }
+
+        // 5. Limpa a bagunça, explode o grupo e devolve o layout de celular ao normal (antes de montar o PDF)
+        canvas.remove(headerBg, headerLine, txtTopo1, txtTopo2, txtTopo3, txtResumoCabos); 
+        if(g) { g.set(origGroupState); g.setCoords(); g.toActiveSelection(); canvas.discardActiveObject(); }
+        if (wrap) { wrap.setAttribute('style', origWrapStyle); } // Devolve travas CSS
+        canvas.setWidth(originalWidth); canvas.setHeight(originalHeight); canvas.setViewportTransform(vptOriginal); 
+        mostrarGrade = true;
+        canvas.setBackgroundColor('', canvas.renderAll.bind(canvas));
+
+        if (!imgData) { alert("Erro ao gerar PDF."); return; }
+        montarPDF();
+
+        async function montarPDF() { try {
             const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-            doc.addImage(imgData, 'PNG', 0, 21.5, 297, 167); doc.addPage('a4', 'portrait');
+            let pagina1 = imgData, formato = 'PNG';
+            if (usaMapa && transformExport && fotoSemRuas) {
+                updateStatus('Montando o croqui sobre o mapa…');
+                try { const r = await comporCroquiComMapa(fotoSemRuas, imgData, transformExport); pagina1 = r.dataUrl; formato = 'JPEG'; }
+                catch (e) { console.warn('Croqui sem mapa de fundo', e); }
+            }
+            if (formato === 'PNG' && usaMapa) { pagina1 = await fundoBranco(imgData); formato = 'JPEG'; }
+            doc.addImage(pagina1, formato, 0, 21.5, 297, 167); doc.addPage('a4', 'portrait');
             doc.setFontSize(16); doc.setTextColor(102, 0, 153); doc.text("Relatório de Quantitativos e Serviços", 14, 20);
             
             let tableData = [ 
@@ -788,19 +826,19 @@ function confirmarSalvar() {
             
             if (totais.itensExtras.length > 0) { tableData.push(["---", "---"]); tableData.push(["CÓDIGOS / SERVIÇOS EXTRAS", "QUANTIDADE"]); totais.itensExtras.forEach(e => { tableData.push([e.item, e.qtd]); }); }
             doc.autoTable({ startY: 28, head: [['Informação / Serviço', 'Valor / Quantidade']], body: tableData, theme: 'striped', headStyles: { fillColor: [102, 0, 153] }, styles: { fontSize: 11, cellPadding: 4 }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 90 } } });
-            finalizarPDF(doc, idProj);
-        } catch (erro) { console.error(erro); alert("Erro ao gerar PDF."); }
-        
-        // 5. Limpa a bagunça, explode o grupo e devolve o layout de celular ao normal
-        canvas.remove(headerBg, headerLine, txtTopo1, txtTopo2, txtTopo3, txtResumoCabos); 
-        if(g) { g.set(origGroupState); g.setCoords(); g.toActiveSelection(); canvas.discardActiveObject(); }
-        
-        if (wrap) { wrap.setAttribute('style', origWrapStyle); } // Devolve travas CSS
-        canvas.setWidth(originalWidth); canvas.setHeight(originalHeight); canvas.setViewportTransform(vptOriginal); 
-        
-        mostrarGrade = true;
-        canvas.setBackgroundColor('', canvas.renderAll.bind(canvas));
+            await finalizarPDF(doc, idProj);
+        } catch (erro) { console.error(erro); alert("Erro ao gerar PDF."); } }
     }, 100);
+}
+
+// Foto transparente -> fundo branco (para quando o mapa não puder entrar).
+function fundoBranco(dataUrl) {
+    return new Promise(resolve => {
+        let img = new Image();
+        img.onload = () => { let c = document.createElement('canvas'); c.width = img.width; c.height = img.height; let x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0); resolve(c.toDataURL('image/jpeg', 0.92)); };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+    });
 }
 
 // Se houver mapeamento com GPS, acrescenta as páginas do mapa e das

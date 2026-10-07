@@ -24,7 +24,7 @@ O jeito mais rápido de fazer o croqui é não desenhar:
 
 **Mapeamento feito por outra pessoa:** no mapa, menu **⋯ > Compartilhar mapeamento**. Quem recebe o link pelo WhatsApp abre no celular e o mapeamento entra pronto no app.
 
-**Para a fiscalização**, o PDF ganha duas páginas: o mapa real com o trajeto e uma tabela com as coordenadas, a precisão do GPS e o horário de cada ponto, com link para o Google Maps.
+**No PDF**, o croqui gerado do mapa sai desenhado em cima do mapa simples da região (quarteirões, ruas e nomes), com legenda e norte. **Para a fiscalização**, o PDF ganha ainda duas páginas: o mapa real com o trajeto e uma tabela com as coordenadas, a precisão do GPS e o horário de cada ponto, com link para o Google Maps.
 
 O mapa e a busca de endereço precisam de internet. Os trechos de mapa já vistos ficam guardados no celular. Sem sinal numa região nova, use o modo com a grade, que funciona sempre.
 
@@ -54,4 +54,4 @@ git push
 
 ## Atualizando o app
 
-Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.1.1`). Assim os celulares descartam a cópia antiga guardada.
+Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.2.1`). Assim os celulares descartam a cópia antiga guardada.

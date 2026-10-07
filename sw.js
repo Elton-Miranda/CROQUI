@@ -7,7 +7,7 @@
 // porque elas nunca mudam de versão.
 //
 // Ao publicar uma mudança grande, aumente o número da versão abaixo.
-const VERSAO = 'croqui-v2.1.0';
+const VERSAO = 'croqui-v2.2.0';
 const CACHE_MAPA = 'croqui-tiles';   // pedaços do mapa já vistos (mantido entre versões)
 const LIMITE_TILES = 600;            // ~10 MB
 

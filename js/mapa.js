@@ -623,7 +623,8 @@ function projetarPontos(m) {
     const pos = {};
     if (!m.pontos.length) return { pos, escala: 1 };
     const lat0 = m.pontos[0].lat, lng0 = m.pontos[0].lng;
-    const kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 110574;
+    // Mesma proporção do mapa web (Mercator): assim o croqui encaixa certinho em cima do mapa no PDF.
+    const ky = 111320, kx = ky * Math.cos(lat0 * Math.PI / 180);
     const dists = m.trechos.map(t => t.distancia || distanciaMetros(acharPonto(m, t.de), acharPonto(m, t.para))).filter(d => d > 0).sort((a, b) => a - b);
     const mediana = dists.length ? dists[Math.floor(dists.length / 2)] : 40;
     const escala = Math.min(6, Math.max(0.3, 140 / mediana)); // pixels por metro
@@ -633,8 +634,10 @@ function projetarPontos(m) {
         pos[p.id] = { x, y }; minX = Math.min(minX, x); minY = Math.min(minY, y);
     });
     // Começa perto do canto da grade, com folga para os nomes das ruas.
-    Object.values(pos).forEach(q => { q.x = Math.round(q.x - minX + 220); q.y = Math.round(q.y - minY + 220); });
-    return { pos, escala };
+    const offX = 220 - minX, offY = 220 - minY;
+    Object.values(pos).forEach(q => { q.x = q.x + offX; q.y = q.y + offY; });
+    // Guarda a conversão para depois achar a posição real de qualquer ponto do croqui.
+    return { pos, escala, projecao: { lat0, lng0, kx, ky, escala, offX, offY } };
 }
 
 // Agrupa pontos seguidos da mesma rua para escrever o nome uma vez só, ao lado do trecho.
@@ -653,7 +656,8 @@ function posicoesDasRuas(m, pos) {
         }
         // Afasta o nome 55px para o lado do cabo (perpendicular ao trajeto).
         const r = ang * Math.PI / 180;
-        return { rua, x: cx - Math.sin(r) * 55, y: cy + Math.cos(r) * 55, angulo: ang };
+        // Do lado oposto ao da linha verde de retirada (que vai para baixo/direita).
+        return { rua, x: cx + Math.sin(r) * 55, y: cy - Math.cos(r) * 55, angulo: ang };
     });
 }
 
@@ -662,7 +666,9 @@ function gerarCroquiDoMapa() {
     const temDesenho = canvas.getObjects().some(o => o.id_tipo && o.id_tipo !== 'marcador');
     if (temDesenho && !confirm('Já existe um desenho no croqui.\n\nSubstituir pelo desenho gerado do mapa?')) return;
 
-    const { pos } = projetarPontos(mapeamento);
+    const { pos, projecao } = projetarPontos(mapeamento);
+    mapeamento.projecao = projecao;
+    salvarMapeamento();
     if (typeof resetStartNode === 'function') resetStartNode();
     navegandoHistorico = true; // um único passo de "desfazer" para tudo
     canvas.getObjects().slice().forEach(o => canvas.remove(o));
@@ -684,7 +690,7 @@ function gerarCroquiDoMapa() {
         canvas.add(g);
     });
 
-    posicoesDasRuas(mapeamento, pos).forEach(r => canvas.add(montarRua(r.x, r.y, r.rua, r.angulo)));
+    posicoesDasRuas(mapeamento, pos).forEach(r => canvas.add(montarRua(r.x, r.y, r.rua, r.angulo).set('rua_mapa', true)));
 
     canvas.getObjects().forEach(o => { if (o.id_tipo && (o.id_tipo.startsWith('equipamento') || o.id_tipo === 'rua_livre')) canvas.bringToFront(o); });
     enquadrarCroqui(Object.values(pos));
@@ -952,7 +958,94 @@ async function adicionarPaginasDoMapa(doc) {
     });
 }
 
+// ==========================================
+// CROQUI EM CIMA DO MAPA (PÁGINA 1 DO PDF)
+// ==========================================
+// Quando o croqui foi gerado do mapeamento, a página principal do PDF
+// mostra o desenho por cima de um mapa simples da região: quarteirões em
+// cinza, ruas em branco e os nomes das ruas. Sem satélite, sem excesso.
+function pxPorMetroMercator(z, lat) { return Math.pow(2, z) * 256 / (40075016.686 * Math.cos(lat * Math.PI / 180)); }
+
+function croquiTemMapa() {
+    return !!(mapeamento && mapeamento.projecao && typeof canvas !== 'undefined' && canvas.getObjects().some(o => o.ponto_mapa));
+}
+
+// Limite de ampliação do croqui no PDF: o mapa de fundo não fica borrado
+// e sempre aparecem as ruas em volta.
+function escalaMaximaNoMapa() {
+    const pr = mapeamento.projecao;
+    return 1.25 * pxPorMetroMercator(19, pr.lat0) / pr.escala;
+}
+
+function croquiParaLatLng(x, y) {
+    const pr = mapeamento.projecao;
+    return { lat: pr.lat0 - (y - pr.offY) / (pr.ky * pr.escala), lng: pr.lng0 + (x - pr.offX) / (pr.kx * pr.escala) };
+}
+
+// Deixa o mapa em tons de cinza claros, para o desenho do cabo se destacar.
+function clarearMapa(ctx, x, y, w, h) {
+    const img = ctx.getImageData(x, y, w, h), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+        const cinza = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+        const v = cinza * 0.78 + 255 * 0.22;
+        d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    ctx.putImageData(img, x, y);
+}
+
+// t = { cx0, cy0, escalaExport, ex0, ey0, larg, alt, topo }: como o croqui foi posicionado na foto.
+async function comporCroquiComMapa(fotoSemRuas, fotoComRuas, t) {
+    const pr = mapeamento.projecao;
+    const pxm = t.escalaExport * pr.escala;                     // pixels da foto por metro
+    const z = Math.max(3, Math.min(19, Math.round(Math.log2(pxm / pxPorMetroMercator(0, pr.lat0)))));
+    const f = pxm / pxPorMetroMercator(z, pr.lat0);              // ampliação dos pedaços do mapa
+    const centro = croquiParaLatLng(t.cx0, t.cy0);
+    const Wx = lngParaPx(centro.lng, z), Wy = latParaPx(centro.lat, z);
+    const tela = document.createElement('canvas'); tela.width = t.larg; tela.height = t.alt;
+    const ctx = tela.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, t.larg, t.alt);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+
+    const xMin = Wx + (0 - t.ex0) / f, xMax = Wx + (t.larg - t.ex0) / f;
+    const yMin = Wy + (t.topo - t.ey0) / f, yMax = Wy + (t.alt - t.ey0) / f;
+    let tilesOk = 0; const tarefas = [];
+    for (let tx = Math.floor(xMin / 256); tx <= Math.floor(xMax / 256); tx++) {
+        for (let ty = Math.floor(yMin / 256); ty <= Math.floor(yMax / 256); ty++) {
+            tarefas.push(carregarImagem(TILE_URL(z, tx, ty), 8000).then(img => {
+                if (!img) return;
+                const dx = t.ex0 + (tx * 256 - Wx) * f, dy = t.ey0 + (ty * 256 - Wy) * f;
+                ctx.save(); ctx.beginPath(); ctx.rect(0, t.topo, t.larg, t.alt - t.topo); ctx.clip();
+                ctx.drawImage(img, Math.floor(dx), Math.floor(dy), Math.ceil(256 * f) + 1, Math.ceil(256 * f) + 1);
+                ctx.restore(); tilesOk++;
+            }));
+        }
+    }
+    await Promise.all(tarefas);
+
+    if (tilesOk) clarearMapa(ctx, 0, t.topo, t.larg, t.alt - t.topo);
+    // Desenho do croqui por cima. Sem mapa (sem internet), usa a versão com os nomes das ruas do croqui.
+    const foto = await carregarImagem(tilesOk ? fotoSemRuas : fotoComRuas, 5000);
+    if (foto) ctx.drawImage(foto, 0, 0);
+
+    if (tilesOk) {
+        // Legenda, norte e créditos do mapa
+        const leg = [['#e74c3c', 'Cabo lançado'], ['#27ae60', 'Cabo retirado'], ['#111111', 'Cabo existente']];
+        ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillRect(14, t.alt - 88, 190, 76);
+        ctx.font = 'bold 14px Roboto, Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        leg.forEach(([cor, txt], i) => {
+            const y = t.alt - 74 + i * 24;
+            ctx.strokeStyle = cor; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(24, y); ctx.lineTo(60, y); ctx.stroke();
+            ctx.fillStyle = '#2c3e50'; ctx.fillText(txt, 70, y);
+        });
+        ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillRect(t.larg - 62, t.topo + 12, 48, 62);
+        ctx.fillStyle = '#2c3e50'; ctx.beginPath(); ctx.moveTo(t.larg - 38, t.topo + 18); ctx.lineTo(t.larg - 50, t.topo + 50); ctx.lineTo(t.larg - 26, t.topo + 50); ctx.closePath(); ctx.fill();
+        ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.fillText('N', t.larg - 38, t.topo + 64);
+        ctx.font = '12px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#555'; ctx.fillText('Mapa: © OpenStreetMap', t.larg - 10, t.alt - 10);
+    }
+    return { dataUrl: tela.toDataURL('image/jpeg', 0.9), tilesOk };
+}
+
 // Para os testes automáticos (no navegador "module" não existe).
 if (typeof module !== 'undefined') {
-    module.exports = { codificarMapeamento, decodificarMapeamento, projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
+    module.exports = { lngParaPx, latParaPx, pxPorMetroMercator, croquiParaLatLng, getMapeamento: () => mapeamento, setMapeamento: (m) => { mapeamento = m; }, codificarMapeamento, decodificarMapeamento, projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
 }
