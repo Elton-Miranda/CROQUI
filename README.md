@@ -23,16 +23,13 @@ O croqui é salvo sozinho no celular a cada alteração. Se o app fechar, ao abr
 
 ## Versão antiga
 
-A versão anterior a essas mudanças está guardada:
-
-- tag **`v1-original`**
-- branch **`versao-original`**
+A versão anterior a essas mudanças está guardada no branch **`versao-original`**.
 
 Para voltar o site para ela sem perder o histórico, no computador:
 
 ```bash
 git checkout main
-git revert --no-edit v1-original..HEAD
+git revert --no-edit origin/versao-original..HEAD
 git push
 ```
 
