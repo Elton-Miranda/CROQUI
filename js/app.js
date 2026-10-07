@@ -71,10 +71,19 @@ canvas.on('object:modified', function() { salvarEstado(); });
 // --- ÁREA DE DESENHO E TOQUE MOBILE BLINDADO ---
 let touchStartX = 0; let touchStartY = 0; let isActuallyDragging = false;
 
+// Ajusta só o tamanho do canvas. Roda de novo ao girar a tela ou abrir o teclado.
+function ajustarTamanhoCanvas() {
+    let container = document.getElementById('canvas-container');
+    canvas.setWidth(container ? container.clientWidth : window.innerWidth);
+    canvas.setHeight(container ? container.clientHeight : window.innerHeight - 110);
+    canvas.requestRenderAll();
+}
+
+// Registra os eventos de toque UMA única vez.
+// (Antes isso rodava a cada "resize" e cada toque passava a valer 2, 3, 4 vezes.)
 function initCanvasArea() {
-    canvas.setWidth(window.innerWidth);
-    canvas.setHeight(window.innerHeight - 50); 
-    
+    ajustarTamanhoCanvas();
+
     canvas.on('mouse:down', function(opt) {
         if (ignoreNextTouch) return;
         let evt = opt.e;
@@ -144,7 +153,7 @@ function initCanvasArea() {
         }
     }, { passive: false });
 }
-initCanvasArea(); window.addEventListener('resize', initCanvasArea);
+initCanvasArea(); window.addEventListener('resize', ajustarTamanhoCanvas);
 
 // --- GRID E SETUP INICIAL ---
 function initGrid() {
