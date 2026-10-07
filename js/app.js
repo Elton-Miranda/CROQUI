@@ -14,6 +14,14 @@ let zoomLevel = 1;
 let tempCTOX = 0;
 let tempCTOY = 0;
 
+// Salvamento automático (ver final do arquivo)
+const CHAVE_RASCUNHO = 'croqui_rascunho_v2';
+const CHAVE_PERFIL = 'croqui_perfil_tecnico';
+const CAMPOS_OS = ['inputOC', 'inputCausa', 'inputMotivo', 'inputLocCT', 'inputCabo', 'inputPrimaria'];
+const CAMPOS_PERFIL = ['inputEncarregado', 'inputRE', 'inputPlaca'];
+let timerAutoSalvar = null;
+let restaurando = false;
+
 let ignoreNextTouch = false;
 function travarToqueFalso() {
     ignoreNextTouch = true;
@@ -38,6 +46,7 @@ function salvarEstado() {
     historicoCanvas.push(json);
     indiceHistorico++;
     atualizarBotoesHistorico();
+    if (typeof agendarAutoSalvar === 'function') agendarAutoSalvar();
 }
 
 function atualizarBotoesHistorico() {
@@ -51,7 +60,7 @@ function desfazer() {
         navegandoHistorico = true; indiceHistorico--;
         let vptAtual = canvas.viewportTransform.slice(); 
         canvas.loadFromJSON(historicoCanvas[indiceHistorico], function() {
-            canvas.setViewportTransform(vptAtual); marcadorInicio = null; startNode = null; canvas.renderAll(); navegandoHistorico = false; atualizarBotoesHistorico(); fecharPieMenu();
+            canvas.setViewportTransform(vptAtual); marcadorInicio = null; startNode = null; canvas.renderAll(); navegandoHistorico = false; agendarAutoSalvar(); atualizarBotoesHistorico(); fecharPieMenu();
         });
     }
 }
@@ -61,7 +70,7 @@ function refazer() {
         navegandoHistorico = true; indiceHistorico++;
         let vptAtual = canvas.viewportTransform.slice();
         canvas.loadFromJSON(historicoCanvas[indiceHistorico], function() {
-            canvas.setViewportTransform(vptAtual); marcadorInicio = null; startNode = null; canvas.renderAll(); navegandoHistorico = false; atualizarBotoesHistorico(); fecharPieMenu();
+            canvas.setViewportTransform(vptAtual); marcadorInicio = null; startNode = null; canvas.renderAll(); navegandoHistorico = false; agendarAutoSalvar(); atualizarBotoesHistorico(); fecharPieMenu();
         });
     }
 }
@@ -230,7 +239,8 @@ function novoCroqui() {
     if (confirm("⚠️ ATENÇÃO!\n\nTem certeza que deseja apagar TODO o desenho atual?")) {
         canvas.clear(); historicoCanvas = []; indiceHistorico = -1;
         isConnectingMode = false; modoCaboAtivo = null; startNode = null; marcadorInicio = null; activeTarget = null; listaMateriaisManuais = [];
-        canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); zoomLevel = 1; salvarEstado(); updateStatus("Tela limpa. Novo projeto iniciado.");
+        canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); zoomLevel = 1;
+        limparDadosDaOS(); salvarEstado(); updateStatus("Tela limpa. Novo projeto iniciado.");
     }
 }
 
@@ -609,14 +619,14 @@ function verificarMaterialOutro() { let select = document.getElementById('select
 function addMaterialManual() { 
     let select = document.getElementById('selectMaterialBase'), inputManual = document.getElementById('manualItem'), q = document.getElementById('manualQtd').value, nomeServico = select.value === 'Outro' ? inputManual.value : select.value;
     if (!nomeServico || !q) { alert("Selecione e Preencha a Quantidade."); return; } 
-    listaMateriaisManuais.push({ item: nomeServico, qtd: q }); select.value = ""; inputManual.value = ""; inputManual.style.display = 'none'; document.getElementById('manualQtd').value = ""; renderListaMateriais(); 
+    listaMateriaisManuais.push({ item: nomeServico, qtd: q }); select.value = ""; inputManual.value = ""; inputManual.style.display = 'none'; document.getElementById('manualQtd').value = ""; renderListaMateriais(); agendarAutoSalvar();
 }
 function renderListaMateriais() { 
     let ul = document.getElementById('listaMateriaisVisivel'); ul.innerHTML = ""; 
     if (listaMateriaisManuais.length === 0) { ul.innerHTML = "<li style='color:#999; text-align:center;'>Nenhum serviço/material extra.</li>"; return; } 
     listaMateriaisManuais.forEach((m, i) => { let li = document.createElement("li"); li.innerHTML = `<span><b>${m.qtd}</b> x ${m.item}</span> <button onclick="removerMaterialManual(${i})" style="background:#c0392b; color:white; border:none; border-radius:4px; padding:4px 8px; cursor:pointer;">X</button>`; ul.appendChild(li); }); 
 }
-function removerMaterialManual(i) { listaMateriaisManuais.splice(i, 1); renderListaMateriais(); }
+function removerMaterialManual(i) { listaMateriaisManuais.splice(i, 1); renderListaMateriais(); agendarAutoSalvar(); }
 
 // --- TUTORIAL INTERATIVO ---
 let slideAtual = 0; const totalSlides = 4;
@@ -953,3 +963,97 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+// ==========================================
+// SALVAMENTO AUTOMÁTICO E PERFIL DO TÉCNICO
+// ==========================================
+// O croqui fica guardado no próprio celular a cada alteração. Se o app
+// fechar, a bateria acabar ou o técnico atender uma ligação, ao abrir de
+// novo está tudo lá. Só some quando o técnico aperta "Novo".
+// (as variáveis do salvamento automático ficam no topo do arquivo)
+
+function agendarAutoSalvar() {
+    if (restaurando) return;
+    clearTimeout(timerAutoSalvar);
+    timerAutoSalvar = setTimeout(autoSalvarAgora, 400);
+}
+
+function lerCampos(ids) {
+    let dados = {};
+    ids.forEach(id => { let el = document.getElementById(id); if (el) dados[id] = el.value; });
+    return dados;
+}
+
+function autoSalvarAgora() {
+    if (restaurando) return;
+    clearTimeout(timerAutoSalvar);
+    try {
+        let rascunho = {
+            versao: 2,
+            salvoEm: new Date().toISOString(),
+            desenho: canvas.toJSON(customProps),
+            camera: canvas.viewportTransform.slice(),
+            materiais: listaMateriaisManuais,
+            formulario: lerCampos(CAMPOS_OS)
+        };
+        localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(rascunho));
+        localStorage.setItem(CHAVE_PERFIL, JSON.stringify(lerCampos(CAMPOS_PERFIL)));
+    } catch (e) { console.warn('Não foi possível salvar o rascunho', e); }
+}
+
+function preencherCampos(dados) {
+    if (!dados) return;
+    // Causa precisa vir antes do Motivo, porque a lista de motivos depende dela.
+    if (dados.inputCausa !== undefined) {
+        let causa = document.getElementById('inputCausa');
+        if (causa) { causa.value = dados.inputCausa; causa.dispatchEvent(new Event('change')); }
+    }
+    Object.keys(dados).forEach(id => {
+        if (id === 'inputCausa') return;
+        let el = document.getElementById(id); if (el) el.value = dados[id];
+    });
+}
+
+function limparDadosDaOS() {
+    CAMPOS_OS.forEach(id => { let el = document.getElementById(id); if (el) el.value = ''; });
+    let motivo = document.getElementById('inputMotivo');
+    if (motivo && motivo.tagName === 'SELECT') motivo.innerHTML = '<option value="">Selecione a Causa primeiro...</option>';
+    try { localStorage.removeItem(CHAVE_RASCUNHO); } catch (e) {}
+    // O perfil (nome, RE, placa) continua guardado de propósito.
+}
+
+function restaurarRascunho() {
+    let perfil = null, rascunho = null;
+    try { perfil = JSON.parse(localStorage.getItem(CHAVE_PERFIL) || 'null'); } catch (e) {}
+    try { rascunho = JSON.parse(localStorage.getItem(CHAVE_RASCUNHO) || 'null'); } catch (e) {}
+    preencherCampos(perfil);
+    if (!rascunho || !rascunho.desenho) return;
+
+    restaurando = true;
+    preencherCampos(rascunho.formulario);
+    listaMateriaisManuais = Array.isArray(rascunho.materiais) ? rascunho.materiais : [];
+    canvas.loadFromJSON(rascunho.desenho, function() {
+        if (Array.isArray(rascunho.camera)) canvas.setViewportTransform(rascunho.camera);
+        zoomLevel = canvas.getZoom();
+        canvas.renderAll();
+        historicoCanvas = []; indiceHistorico = -1;
+        restaurando = false;
+        salvarEstado();
+        let qtd = canvas.getObjects().length;
+        if (qtd > 0) {
+            let hora = new Date(rascunho.salvoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            updateStatus('Croqui recuperado (salvo às ' + hora + ')');
+        }
+    });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    restaurarRascunho();
+    // Qualquer coisa digitada no formulário também é salva na hora.
+    let modal = document.getElementById('modalSalvar');
+    if (modal) { modal.addEventListener('input', agendarAutoSalvar); modal.addEventListener('change', agendarAutoSalvar); }
+});
+
+// Garante o salvamento quando o app vai para o fundo (ligação, troca de app, tela apagando).
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') autoSalvarAgora(); });
+window.addEventListener('pagehide', autoSalvarAgora);
