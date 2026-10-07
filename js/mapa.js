@@ -908,6 +908,197 @@ function posicoesDasRuas(m, pos) {
     });
 }
 
+// ==========================================
+// ARRUMAÇÃO DO CROQUI GERADO (sem nada por cima de nada)
+// ==========================================
+// Só geometria, sem desenhar: decide onde vai a retirada, as caixas com
+// seta de cada poste e os nomes das ruas, evitando sobreposição.
+const DESLOC_RETIRADA = 34;   // distância da linha verde até o cabo lançado (px do croqui)
+const FONTE_NOTA = 19, FONTE_NOTA_TITULO = 20, LINHA_NOTA = 25; // texto das caixas com seta (legível no PDF)
+
+function retangulo(cx, cy, w, h) { return { x1: cx - w / 2, y1: cy - h / 2, x2: cx + w / 2, y2: cy + h / 2 }; }
+function areaSobreposta(a, b) {
+    const w = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1), h = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1);
+    return w > 0 && h > 0 ? w * h : 0;
+}
+// O segmento cruza (ou encosta) no retângulo?
+function segmentoCruzaRet(p, q, r, folga) {
+    folga = folga || 0;
+    const R = { x1: r.x1 - folga, y1: r.y1 - folga, x2: r.x2 + folga, y2: r.y2 + folga };
+    let t0 = 0, t1 = 1; const dx = q.x - p.x, dy = q.y - p.y;
+    const testes = [[-dx, p.x - R.x1], [dx, R.x2 - p.x], [-dy, p.y - R.y1], [dy, R.y2 - p.y]];
+    for (const [pp, qq] of testes) {
+        if (pp === 0) { if (qq < 0) return false; continue; }
+        const t = qq / pp;
+        if (pp < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
+    }
+    return true;
+}
+function distPontoSeg(pt, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / l2));
+    return Math.hypot(pt.x - (a.x + t * dx), pt.y - (a.y + t * dy));
+}
+// Largura aproximada do texto. Maiúsculas em negrito são mais largas.
+function larguraTexto(txt, fonte, negritoMaiusculo) { return String(txt).length * fonte * (negritoMaiusculo ? 0.68 : 0.56); }
+
+// Texto girado = faixa fina. Representa com quadradinhos ao longo da faixa.
+function faixaDeTexto(x, y, w, h, t) {
+    const q = [];
+    for (let k = -w / 2 + h / 2; k <= w / 2 - h / 2 + 0.1; k += h * 0.8) q.push(retangulo(x + t.x * k, y + t.y * k, h, h));
+    return q;
+}
+
+// Linha paralela a um caminho de pontos, com cantos unidos (sem quebrar na curva).
+function deslocarCaminho(pts, d) {
+    const normais = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+        const dx = pts[i + 1].x - pts[i].x, dy = pts[i + 1].y - pts[i].y, l = Math.hypot(dx, dy) || 1;
+        normais.push({ x: -dy / l, y: dx / l });
+    }
+    return pts.map((p, i) => {
+        const n0 = normais[Math.max(0, i - 1)], n1 = normais[Math.min(normais.length - 1, i)];
+        let nx = n0.x + n1.x, ny = n0.y + n1.y; const l = Math.hypot(nx, ny);
+        if (l < 0.2) return { x: p.x + n1.x * d, y: p.y + n1.y * d };          // volta de 180°: usa a normal do trecho
+        nx /= l; ny /= l;
+        const cos = nx * n1.x + ny * n1.y, fator = Math.min(2.5, 1 / Math.max(cos, 0.4)); // canto em "bico", com limite
+        return { x: p.x + nx * d * fator, y: p.y + ny * d * fator };
+    });
+}
+
+function linhasDaNota(p) {
+    const linhas = [];
+    if (p.caixa && p.caixa.tipo === 'CTOP') {
+        linhas.push({ t: descreverCaixa(p.caixa).toUpperCase(), titulo: true });
+        if (p.caixa.contagem) linhas.push({ t: 'Contagem ' + p.caixa.contagem });
+        if (p.caixa.ctoTipo) linhas.push({ t: p.caixa.ctoTipo });
+    } else if (p.caixa && p.caixa.tipo === 'CEO') {
+        linhas.push({ t: descreverCaixa(p.caixa).toUpperCase(), titulo: true });
+    }
+    (p.itens || []).forEach(i => {
+        let nome = nomeItem(i.item); if (nome.length > 30) nome = nome.slice(0, 29) + '…';
+        linhas.push({ t: (i.qtd ? i.qtd + '× ' : '') + nome });
+    });
+    if (linhas.length && !linhas[0].titulo) linhas.unshift({ t: (p.caixa && p.caixa.tipo === 'Subida' ? 'SUBIDA' : (p.tipo || 'POSTE').toUpperCase()), titulo: true });
+    return linhas;
+}
+
+// m: mapeamento · pos: id -> {x, y} no croqui.
+function planejarCroqui(m, pos) {
+    const P = id => pos[id];
+    const ocupados = [];   // retângulos já usados (equipamentos, etiquetas, notas)
+    const linhas = [];     // segmentos de cabo (lançado e retirado)
+    m.pontos.forEach(p => ocupados.push(retangulo(P(p.id).x, P(p.id).y, 48, 48)));
+    m.trechos.forEach(t => {
+        const a = P(t.de), b = P(t.para); if (!a || !b) return;
+        linhas.push([a, b]);
+        const txt = t.metragem + 'm';
+        ocupados.push(retangulo((a.x + b.x) / 2, (a.y + b.y) / 2, larguraTexto(txt, 22) + 14, 34));
+    });
+
+    const penalidade = (r, extraSegs) => {
+        let pen = 0;
+        ocupados.forEach(o => { pen += areaSobreposta(r, o) * 20; }); // qualquer sobreposição pesa mais que afastar
+        linhas.concat(extraSegs || []).forEach(([a, b]) => { if (segmentoCruzaRet(a, b, r, 6)) pen += 4000; });
+        return pen;
+    };
+
+    // 1) Retirada: lado com mais espaço livre
+    const retiradas = [];
+    (m.retiradas || []).forEach(r => {
+        const caminho = [r.trechos[0].de].concat(r.trechos.map(t => t.para)).map(P);
+        if (caminho.some(q => !q)) return;
+        const lados = [DESLOC_RETIRADA, -DESLOC_RETIRADA].map(d => {
+            const desl = deslocarCaminho(caminho, d);
+            let pen = 0;
+            for (let i = 0; i < desl.length - 1; i++) {
+                linhas.forEach(([a, b]) => {
+                    const doCaminho = caminho.includes(a) && caminho.includes(b);
+                    if (!doCaminho) pen += Math.max(0, 40 - Math.min(distPontoSeg(a, desl[i], desl[i + 1]), distPontoSeg(b, desl[i], desl[i + 1]))) * 50;
+                });
+                ocupados.forEach(o => { if (segmentoCruzaRet(desl[i], desl[i + 1], o, 0)) pen += 300; });
+            }
+            // empate: prefere o lado de baixo/direita, como a retirada manual
+            const n = { x: desl[0].x - caminho[0].x, y: desl[0].y - caminho[0].y };
+            return { d, desl, pen: pen - (n.x + n.y > 0 ? 1 : 0) };
+        });
+        const melhor = lados.sort((a, b) => a.pen - b.pen)[0];
+        r.trechos.forEach((t, i) => {
+            const a = melhor.desl[i], b = melhor.desl[i + 1];
+            const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
+            const n = { x: -dy / l * Math.sign(melhor.d), y: dx / l * Math.sign(melhor.d) };
+            const txt = t.metragem + 'm', w = larguraTexto(txt, 20) + 12, h = 30;
+            const ext = Math.abs(n.x) * w / 2 + Math.abs(n.y) * h / 2;    // etiqueta fica do lado de fora da linha verde
+            // No meio do vão; se o meio já estiver ocupado (ex.: canto com vãos curtos), anda ao longo do vão.
+            let melhorRot = null;
+            [0.5, 0.36, 0.64, 0.24, 0.76].forEach((f, fi) => {
+                const cx = a.x + dx * f + n.x * (ext + 4), cy = a.y + dy * f + n.y * (ext + 4);
+                const pen = penalidade(retangulo(cx, cy, w, h)) + fi;
+                if (!melhorRot || pen < melhorRot.pen) melhorRot = { pen, cx, cy };
+            });
+            const cx = melhorRot.cx, cy = melhorRot.cy;
+            retiradas.push({ de: t.de, para: t.para, metragem: t.metragem, a, b, rotulo: { x: cx, y: cy, w, h } });
+            linhas.push([a, b]);
+            ocupados.push(retangulo(cx, cy, w, h));
+        });
+    });
+
+    // 2) Caixa com seta em cada poste que tem caixa ou itens
+    const notas = [];
+    const direcoes = [-45, -135, 45, 135, -90, 0, 180, 90].map(g => ({ x: Math.cos(g * Math.PI / 180), y: Math.sin(g * Math.PI / 180) }));
+    m.pontos.forEach(p => {
+        const lns = linhasDaNota(p);
+        if (!lns.length) return;
+        const w = Math.max(...lns.map(l => larguraTexto(l.t, l.titulo ? FONTE_NOTA_TITULO : FONTE_NOTA, l.titulo))) + 26, h = lns.length * LINHA_NOTA + 16;
+        const alvo = P(p.id);
+        let melhor = null;
+        [80, 125, 175, 230].forEach((dist, di) => direcoes.forEach((u, ui) => {
+            const cx = alvo.x + u.x * (dist + w / 2 * Math.abs(u.x)), cy = alvo.y + u.y * (dist + h / 2 * Math.abs(u.y));
+            const r = retangulo(cx, cy, w, h);
+            const seta = [{ x: cx, y: cy }, alvo];
+            let pen = penalidade(retangulo(cx, cy, w + 12, h + 12)); // 6px de folga em volta
+            ocupados.forEach(o => { if (o !== null && segmentoCruzaRet(seta[0], seta[1], o, -2) && !(Math.abs((o.x1 + o.x2) / 2 - alvo.x) < 1 && Math.abs((o.y1 + o.y2) / 2 - alvo.y) < 1)) pen += 150; });
+            pen += di * 40 + ui;   // prefere perto e nas diagonais
+            if (!melhor || pen < melhor.pen) melhor = { pen, cx, cy, r };
+        }));
+        // Seta: da borda da caixa até a borda do poste
+        const dx = alvo.x - melhor.cx, dy = alvo.y - melhor.cy, l = Math.hypot(dx, dy) || 1;
+        const k = Math.min(Math.abs((w / 2) / (dx || 1e-9)), Math.abs((h / 2) / (dy || 1e-9)));
+        const ini = { x: melhor.cx + dx * Math.min(k, 1), y: melhor.cy + dy * Math.min(k, 1) };
+        const fim = { x: alvo.x - dx / l * 27, y: alvo.y - dy / l * 27 };
+        notas.push({ id: p.id, cx: melhor.cx, cy: melhor.cy, w, h, linhas: lns, cor: p.caixa && p.caixa.tipo === 'CTOP' ? '#660099' : (p.caixa && p.caixa.tipo === 'CEO' ? '#111111' : '#d35400'), seta: { ini, fim } });
+        ocupados.push(melhor.r);
+        linhas.push([ini, fim]);
+    });
+
+    // 3) Nomes das ruas: do lado da própria rua, no espaço livre
+    const ruas = [];
+    const grupos = {};
+    m.pontos.forEach(p => { if (p.rua) (grupos[p.rua] = grupos[p.rua] || []).push(P(p.id)); });
+    Object.keys(grupos).forEach(rua => {
+        const pts = grupos[rua];
+        const cx = pts.reduce((s, q) => s + q.x, 0) / pts.length, cy = pts.reduce((s, q) => s + q.y, 0) / pts.length;
+        let ang = 0;
+        if (pts.length > 1) {
+            ang = Math.atan2(pts[pts.length - 1].y - pts[0].y, pts[pts.length - 1].x - pts[0].x) * 180 / Math.PI;
+            if (ang > 90) ang -= 180; if (ang < -90) ang += 180; ang = Math.round(ang / 15) * 15;
+        }
+        const rad = ang * Math.PI / 180, n = { x: -Math.sin(rad), y: Math.cos(rad) }, t = { x: Math.cos(rad), y: Math.sin(rad) };
+        const w = larguraTexto(rua.toUpperCase(), 24, true) + 12, h = 32;
+        let melhor = null;
+        [50, 80, 115, 155, 200].forEach((d, di) => [-1, 1].forEach(lado => [0, -0.5, 0.5, -1, 1].forEach((desl, si) => {
+            const x = cx + n.x * d * lado + t.x * desl * w / 2, y = cy + n.y * d * lado + t.y * desl * w / 2;
+            const faixa = faixaDeTexto(x, y, w, h, t);
+            const pen = faixa.reduce((sp, q) => sp + penalidade(q), 0) + di * 30 + si * 8 + (lado === -1 ? 0 : 1);
+            if (!melhor || pen < melhor.pen) melhor = { pen, x, y, faixa };
+        })));
+        ruas.push({ rua, x: melhor.x, y: melhor.y, angulo: ang, faixa: melhor.faixa });
+        melhor.faixa.forEach(q => ocupados.push(q));
+    });
+
+    return { retiradas, notas, ruas, ocupados };
+}
+
 function gerarCroquiDoMapa() {
     if (mapeamento.pontos.length < 2) { alert('Marque pelo menos 2 postes para gerar o croqui.'); return; }
     // Pergunta da retirada (uma vez por mapeamento; dá para mudar depois no menu ⋯).
@@ -939,14 +1130,47 @@ function gerarCroquiDoMapa() {
         canvas.add(g);
     });
 
-    posicoesDasRuas(mapeamento, pos).forEach(r => canvas.add(montarRua(r.x, r.y, r.rua, r.angulo).set('rua_mapa', true)));
+    // Retirada, caixas com seta e nomes de rua, arrumados para nada ficar por cima de nada.
+    const plano = planejarCroqui(mapeamento, pos);
+    plano.retiradas.forEach(r => canvas.add(montarRetiradaVao(r)));
+    plano.notas.forEach(n => { canvas.add(montarSetaNota(n)); canvas.add(montarNota(n)); });
+    plano.ruas.forEach(r => canvas.add(montarRua(r.x, r.y, r.rua, r.angulo).set('rua_mapa', true)));
 
-    canvas.getObjects().forEach(o => { if (o.id_tipo && (o.id_tipo.startsWith('equipamento') || o.id_tipo === 'rua_livre')) canvas.bringToFront(o); });
-    enquadrarCroqui(Object.values(pos));
+    // Ordem de cima para baixo: notas e ruas > equipamentos > cabos
+    canvas.getObjects().forEach(o => { if (o.id_tipo && o.id_tipo.startsWith('equipamento')) canvas.bringToFront(o); });
+    canvas.getObjects().forEach(o => { if (o.id_tipo === 'seta_nota' || o.id_tipo === 'nota_ponto' || o.id_tipo === 'rua_livre') canvas.bringToFront(o); });
+    enquadrarCroqui(Object.values(pos).concat(plano.notas.map(n => ({ x: n.cx, y: n.cy }))));
     navegandoHistorico = false;
     salvarEstado();
     fecharMapa();
-    updateStatus(`Croqui gerado do mapa: ${mapeamento.pontos.length} pontos, ${totalMapeado(mapeamento)}m`);
+    const ret = totalRetirado(mapeamento);
+    updateStatus(`Croqui gerado do mapa: ${mapeamento.pontos.length} pontos, ${totalMapeado(mapeamento)}m` + (ret ? `, retirada ${ret}m` : ''));
+}
+
+// Um vão de cabo retirado (linha verde paralela + metragem do lado de fora).
+// Mesmo formato dos outros cabos: tocar nele permite corrigir a metragem.
+function montarRetiradaVao(r) {
+    const linha = new fabric.Line([r.a.x, r.a.y, r.b.x, r.b.y], { stroke: '#27ae60', strokeWidth: 5, strokeLineCap: 'round' });
+    const txt = new fabric.Text(r.metragem + 'm', { left: r.rotulo.x, top: r.rotulo.y, fontSize: 20, fill: '#1e8449', backgroundColor: 'rgba(255,255,255,1)', originX: 'center', originY: 'center', fontWeight: 'bold', padding: 4 });
+    return new fabric.Group([linha, txt], { selectable: true, lockMovementX: true, lockMovementY: true, hasControls: false, perPixelTargetFind: true,
+        id_tipo: 'cabo', sub_tipo: 'retirado', valor_metragem: Number(r.metragem), retirada_mapa: true });
+}
+
+// Caixa de texto com o que foi feito no poste (CTOP, CEO, itens).
+function montarNota(n) {
+    const x0 = n.cx - n.w / 2, y0 = n.cy - n.h / 2;
+    const objs = [new fabric.Rect({ left: x0, top: y0, width: n.w, height: n.h, fill: '#ffffff', stroke: n.cor, strokeWidth: 2, rx: 6, ry: 6 })];
+    n.linhas.forEach((l, i) => objs.push(new fabric.Text(l.t, { left: x0 + 12, top: y0 + 8 + i * LINHA_NOTA, fontSize: l.titulo ? FONTE_NOTA_TITULO : FONTE_NOTA, fontWeight: l.titulo ? 'bold' : 'normal', fill: l.titulo ? n.cor : '#2c3e50', fontFamily: 'Roboto' })));
+    return new fabric.Group(objs, { selectable: true, lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'nota_ponto', nota_ponto: n.id });
+}
+
+// Seta da caixa até o poste.
+function montarSetaNota(n) {
+    const { ini, fim } = n.seta;
+    const ang = Math.atan2(fim.y - ini.y, fim.x - ini.x) * 180 / Math.PI;
+    const linha = new fabric.Line([ini.x, ini.y, fim.x, fim.y], { stroke: '#2c3e50', strokeWidth: 2 });
+    const ponta = new fabric.Triangle({ left: fim.x, top: fim.y, width: 12, height: 14, angle: ang + 90, fill: '#2c3e50', originX: 'center', originY: 'center' });
+    return new fabric.Group([linha, ponta], { selectable: false, evented: false, id_tipo: 'seta_nota' });
 }
 
 // Ajusta o zoom e a posição para o croqui inteiro aparecer na tela.
@@ -982,7 +1206,7 @@ function enxugarMapeamento(m) {
     const r6 = v => Math.round(v * 1e6) / 1e6;
     return {
         v: 1, criadoEm: m.criadoEm, autor: m.autor || '', oc: m.oc || '', endereco: m.endereco || null,
-        pontos: m.pontos.map(p => ({ id: p.id, lat: r6(p.lat), lng: r6(p.lng), prec: p.prec, origem: p.origem, hora: p.hora, rua: p.rua || '', tipo: p.tipo, caixa: p.caixa || null, itens: p.itens || [], cidade: p.cidade || '' })),
+        pontos: m.pontos.map(p => ({ id: p.id, lat: r6(p.lat), lng: r6(p.lng), prec: p.prec, origem: p.origem, hora: p.hora, rua: p.rua || '', tipo: p.tipo, caixa: p.caixa || null, itens: (p.itens || []).concat(p.material ? [{ item: p.material, qtd: '' }] : []), cidade: p.cidade || '' })),
         trechos: m.trechos.map(t => ({ de: t.de, para: t.para, distancia: t.distancia, metragem: t.metragem, editada: !!t.editada, tipo: t.tipo || 'instalado' })),
         retiradas: m.retiradas || [], retiradaRespondida: !!m.retiradaRespondida
     };
@@ -1246,7 +1470,7 @@ function croquiTemMapa() {
 // e sempre aparecem as ruas em volta.
 function escalaMaximaNoMapa() {
     const pr = mapeamento.projecao;
-    return 1.25 * pxPorMetroMercator(19, pr.lat0) / pr.escala;
+    return 1.6 * pxPorMetroMercator(19, pr.lat0) / pr.escala;
 }
 
 function croquiParaLatLng(x, y) {
@@ -1319,5 +1543,5 @@ async function comporCroquiComMapa(fotoSemRuas, fotoComRuas, t) {
 
 // Para os testes automáticos (no navegador "module" não existe).
 if (typeof module !== 'undefined') {
-    module.exports = { caminhoEntre, criarRetirada, totalRetirado, atualizarRetiradas, lngParaPx, latParaPx, pxPorMetroMercator, croquiParaLatLng, getMapeamento: () => mapeamento, setMapeamento: (m) => { mapeamento = m; }, codificarMapeamento, decodificarMapeamento, projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
+    module.exports = { planejarCroqui, deslocarCaminho, segmentoCruzaRet, areaSobreposta, retangulo, caminhoEntre, criarRetirada, totalRetirado, atualizarRetiradas, lngParaPx, latParaPx, pxPorMetroMercator, croquiParaLatLng, getMapeamento: () => mapeamento, setMapeamento: (m) => { mapeamento = m; }, codificarMapeamento, decodificarMapeamento, projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
 }

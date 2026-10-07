@@ -161,7 +161,7 @@ function initCanvasArea() {
         if (ehEquipamento) {
             activeTarget = obj; clickCoords = { x: obj.left, y: obj.top }; abrirPieMenu(opt.e, obj.id_tipo); return;
         }
-        if (obj && ['rua_livre', 'simbologia_poste', 'conector_retirada'].includes(obj.id_tipo)) { fecharPieMenu(); return; }
+        if (obj && ['rua_livre', 'simbologia_poste', 'conector_retirada', 'nota_ponto', 'seta_nota'].includes(obj.id_tipo)) { fecharPieMenu(); return; }
 
         // Toque no vazio: se o menu estava aberto, só fecha. Senão abre no ponto mais próximo.
         if (pieMenuAberto()) { fecharPieMenu(); return; }

@@ -16,9 +16,10 @@ O jeito mais rápido de fazer o croqui é não desenhar:
 
 1. **Antes de lançar o cabo**, toque em **🗺️ Mapear** e ande pelo trajeto.
 2. Em cada poste, aperte **📍 Poste aqui**. O GPS marca o ponto e o celular vibra.
-3. No poste que tiver caixa, toque em **CTOP** (escolhendo o tipo), **CEO** ou **Subida**. Material gasto vai em **Material**.
+3. Toque no número do poste para dizer o que foi feito ali: **CTOP** (tipo, cor, número e contagem), **CEO** ou **Subida**, e os **itens** usados com quantidade (ex.: 2 conectores, emenda, spiral tube). Os botões da barra fazem o mesmo para o último poste marcado.
 4. A metragem de cada trecho é sugerida pela distância do mapa mais 5% de folga. Toque no trecho para corrigir.
-5. No fim, **✅ Gerar croqui**: o app faz o desenho no formato de sempre. Depois é só gerar o PDF.
+5. No fim, **✅ Gerar croqui**. O app pergunta se **houve retirada** de cabo: informe "do poste 2 ao 7" (pode ser mais de um trecho) e confira a metragem de cada vão.
+6. O app faz o desenho sozinho: cabo lançado em vermelho, retirada em verde ao lado, e cada poste com caixa ou itens ganha um quadro com seta explicando o que foi feito. Nada fica por cima de nada. Depois é só gerar o PDF.
 
 **Fora do local** (ou sem GPS): digite rua, número e cidade na busca, arraste o mapa até a mira vermelha ficar no poste e aperte **✛ Poste na mira**.
 
@@ -54,4 +55,4 @@ git push
 
 ## Atualizando o app
 
-Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.2.1`). Assim os celulares descartam a cópia antiga guardada.
+Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.3.1`). Assim os celulares descartam a cópia antiga guardada.
