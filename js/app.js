@@ -671,7 +671,7 @@ function confirmarSalvar() {
     
     if (encarregado === "S/I" || re === "S/I" || oc === "S/I") { alert("Preencha ao menos OC/OR, Encarregado e RE."); return; }
     
-    let idProj = `OC_${oc}_CABO_${cabo}`; let hoje = new Date().toLocaleDateString('pt-BR'); fecharModais();
+    let idProj = `OC_${oc}_CABO_${cabo}`.replace(/[\\/:*?"<>|]/g, ''); let hoje = new Date().toLocaleDateString('pt-BR'); fecharModais();
 
     let cabosInstalados = canvas.getObjects().filter(o => o.id_tipo === 'cabo' && o.sub_tipo === 'instalado');
     // Sempre parte do zero: se o PDF for gerado de novo, a retirada antiga sai e só volta se confirmar de novo.
