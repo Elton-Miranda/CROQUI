@@ -47,7 +47,7 @@
         <button onclick="ativarZoomDetalhes()" id="btnZoom" class="tool-btn">🔍 Zoom</button>
     </div>
 
-    <<div id="pie-menu" class="pie-menu hidden">
+    <div id="pie-menu" class="pie-menu hidden">
         <button class="pie-item pie-xc" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('Poste XC')">XC</button>
         <button class="pie-item pie-xm" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('Poste XM')">XM</button>
         <button class="pie-item pie-cs" data-menu="main" onpointerdown="event.preventDefault(); event.stopPropagation(); inserirEquipamento('CS')">CS</button>
@@ -191,7 +191,7 @@
 
             <div class="tut-slide hidden" id="slide-2">
                 <h2 style="color: var(--danger);">Lançando Cabos</h2>
-                <p style="font-size: 14px; color: #555;">Clique em <b>🔗 Cabos</b> e escolha o tipo (Instalar, Retirar, Existente).</p>
+                <p style="font-size: 14px; color: #555;">Clique em <b>🔗 Cabos</b> e escolha o tipo (Instalar ou Existente). A retirada é gerada na hora do PDF.</p>
                 <div style="font-size: 35px; margin: 15px 0;">🔘 〰️ 🔘</div>
                 <p style="font-size: 13px; color: #777;">Toque em 2 bolinhas ou postes para ligá-los. O cabo sai com 40m automático. Para editar o tamanho, <b>toque na linha do cabo</b> e aperte o lápis ✏️.</p>
             </div>
@@ -200,7 +200,7 @@
                 <h2 style="color: var(--success);">Gerando o Relatório</h2>
                 <p style="font-size: 14px; color: #555;">Terminou o croqui? Clique no disquete <b>💾 Salvar</b> lá no topo.</p>
                 <div style="font-size: 35px; margin: 15px 0;">📊</div>
-                <p style="font-size: 13px; color: #777;">Preencha os dados da OS, adicione materiais extras (CFO) e nós geramos a Foto de Medição e a Planilha Excel pra você!</p>
+                <p style="font-size: 13px; color: #777;">Preencha os dados da OS, adicione materiais extras (CFO) e nós geramos o PDF com a Foto de Medição e a tabela de quantitativos pra você!</p>
             </div>
 
             <div class="tut-controls" style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center;">
