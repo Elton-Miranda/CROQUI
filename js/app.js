@@ -32,7 +32,7 @@ const customProps = [
     'id_tipo', 'sub_tipo', 'valor_metragem', 'perPixelTargetFind', 'hasControls', 
     'selectable', 'lockScalingX', 'lockScalingY', 'lockRotation', 'snapAngle', 
     'snapThreshold', 'is_cto', 'cto_num', 'cto_contagem', 'materiais_gastos', 
-    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada'
+    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada', 'cto_tipo', 'ceo_nova', 'ponto_mapa'
 ];
 
 let historicoCanvas = [];
@@ -529,54 +529,80 @@ function inserirEquipamento(tipo) {
 
 function inserirCTOP(x, y) { tempCTOX = x; tempCTOY = y; document.getElementById('modalCTO').style.display = 'flex'; }
 
+// --- MONTAGEM DOS EQUIPAMENTOS ---
+// As funções "montar..." só criam o desenho, sem perguntar nada ao técnico.
+// São usadas tanto pelo menu redondo quanto pelo croqui gerado do mapa.
+const TRAVADO = { originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false };
+
+function montarCTO(x, y, numCaixa, contagem, corHex, tipoCto) {
+    corHex = corHex || 'black';
+    let corFonte = (corHex === '#ffffff' || corHex === '#f1c40f') ? 'black' : 'white';
+    let rect = new fabric.Rect({ width: 44, height: 44, fill: corHex, rx: 6, ry: 6, originX: 'center', originY: 'center', stroke: '#333', strokeWidth: 1 });
+    let lblNum = new fabric.Text(String(numCaixa || 'S/N'), { fontSize: 12, fill: corFonte, fontWeight: 'bold', originX: 'center', top: -10 });
+    let lblContagem = new fabric.Text(String(contagem || ''), { fontSize: 11, fill: 'black', top: 22, backgroundColor: 'rgba(255,255,255,0.95)', originX: 'center', originY: 'center', padding: 3 });
+    return new fabric.Group([rect, lblNum, lblContagem], Object.assign({ left: x, top: y, id_tipo: 'equipamento_cabo', is_cto: true, cto_num: numCaixa, cto_contagem: contagem, cto_tipo: tipoCto || '' }, TRAVADO));
+}
+
+function montarCEO(x, y, isNova) {
+    let circle = new fabric.Circle({ radius: 24, fill: isNova ? 'black' : 'white', stroke: 'black', strokeWidth: isNova ? 0 : 3, originX: 'center', originY: 'center' });
+    let lbl = new fabric.Text("CEO", { fontSize: 13, fill: isNova ? 'white' : 'black', fontWeight: 'bold', originX: 'center', originY: 'center' });
+    return new fabric.Group([circle, lbl], Object.assign({ left: x, top: y, id_tipo: 'equipamento_cabo', ceo_nova: !!isNova }, TRAVADO));
+}
+
+function montarCS(x, y, numCaixa) {
+    let labelText = (!numCaixa || numCaixa.trim() === "" || numCaixa === "00") ? "CS S/N" : "CS " + numCaixa;
+    let rect = new fabric.Rect({ width: 80, height: 50, fill: '#bdc3c7', stroke: '#34495e', strokeWidth: 2, rx: 4, ry: 4, originX: 'center', originY: 'center' });
+    let lbl = new fabric.Text(labelText, { fontSize: 18, fill: '#2c3e50', fontWeight: 'bold', fontFamily: 'Roboto', originX: 'center', originY: 'center' });
+    return new fabric.Group([rect, lbl], Object.assign({ left: x, top: y, id_tipo: 'equipamento_poste' }, TRAVADO));
+}
+
+function montarSubida(x, y) {
+    let p = new fabric.Polyline([ {x: -30, y: 0}, {x: -15, y: 0}, {x: -5, y: -25}, {x: 5, y: 25}, {x: 15, y: 0}, {x: 30, y: 0} ], { fill: 'transparent', stroke: 'red', strokeWidth: 4, originX: 'center', originY: 'center' });
+    // Fundo branco para o símbolo não se misturar com a grade
+    let bgCircle = new fabric.Circle({ radius: 20, fill: '#ffffff', originX: 'center', originY: 'center' });
+    return new fabric.Group([bgCircle, p], Object.assign({ left: x, top: y, id_tipo: 'equipamento_poste' }, TRAVADO));
+}
+
+function montarPoste(x, y, tipo) {
+    let circle = new fabric.Circle({ radius: 18, fill: '#3498db', originX: 'center', originY: 'center' });
+    let lbl = new fabric.Text(String(tipo || 'Poste XC').replace('Poste ', ''), { fontSize: 13, fill: 'white', fontWeight: 'bold', originX: 'center', originY: 'center' });
+    return new fabric.Group([circle, lbl], Object.assign({ left: x, top: y, id_tipo: 'equipamento_poste' }, TRAVADO));
+}
+
+function montarRua(x, y, nome, angulo) {
+    return new fabric.Text(String(nome).toUpperCase(), { left: x, top: y, angle: angulo || 0, fontSize: 24, fill: '#2980b9', fontWeight: 'bold', fontFamily: 'Roboto', backgroundColor: 'rgba(255,255,255,0.85)', originX: 'center', originY: 'center', selectable: true, hasControls: true, lockScalingX: true, lockScalingY: true, lockRotation: false, lockMovementX: false, lockMovementY: false, id_tipo: 'rua_livre', snapAngle: 45, snapThreshold: 45 });
+}
+
+// Coloca um equipamento recém-montado no desenho (usado pelo menu redondo).
+function colocarEquipamento(group) {
+    canvas.add(group); canvas.bringToFront(group);
+    activeTarget = group; if (isConnectingMode) definirInicio(group);
+    return group;
+}
+
 function confirmarCTO() {
     let numCaixa = document.getElementById('ctoNum').value; let contagem = document.getElementById('ctoContagem').value; let corHex = document.getElementById('ctoCor').value;
     if (!numCaixa || !contagem) { alert("Preencha o Número e a Contagem da CTO."); return; }
-    let corFonte = (corHex === '#ffffff' || corHex === '#f1c40f') ? 'black' : 'white';
-
-    let rect = new fabric.Rect({ width: 44, height: 44, fill: corHex, rx: 6, ry: 6, originX: 'center', originY: 'center', stroke: '#333', strokeWidth: 1 });
-    let lblNum = new fabric.Text(numCaixa, { fontSize: 12, fill: corFonte, fontWeight: 'bold', originX: 'center', top: -10 });
-    let lblContagem = new fabric.Text(contagem, { fontSize: 11, fill: 'black', top: 22, backgroundColor: 'rgba(255,255,255,0.95)', originX: 'center', originY: 'center', padding: 3 });
-
-    let group = new fabric.Group([rect, lblNum, lblContagem], { left: tempCTOX, top: tempCTOY, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_cabo', is_cto: true, cto_num: numCaixa, cto_contagem: contagem });
-    
-    // LINHA DELETADA: O ponto cinza agora fica vivo no fundo!
-    canvas.add(group); canvas.bringToFront(group);
-    
-    activeTarget = group; if (isConnectingMode) definirInicio(group);
+    colocarEquipamento(montarCTO(tempCTOX, tempCTOY, numCaixa, contagem, corHex));
     document.getElementById('modalCTO').style.display = 'none'; fecharPieMenu(); salvarEstado();
 }
 
 function inserirCEO(x, y) {
     let isNova = confirm("Esta CEO é NOVA ou EXISTENTE?\n\n[OK] = Instalação Nova\n[Cancelar] = Existente");
-    let circle = new fabric.Circle({ radius: 24, fill: isNova ? 'black' : 'white', stroke: 'black', strokeWidth: isNova ? 0 : 3, originX: 'center', originY: 'center' });
-    let lbl = new fabric.Text("CEO", { fontSize: 13, fill: isNova ? 'white' : 'black', fontWeight: 'bold', originX: 'center', originY: 'center' });
-    let group = new fabric.Group([circle, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_cabo' });
-    canvas.add(group); activeTarget = group; if (isConnectingMode) definirInicio(group); fecharPieMenu(); salvarEstado();
+    colocarEquipamento(montarCEO(x, y, isNova)); fecharPieMenu(); salvarEstado();
 }
 
 function inserirCS(x, y) {
-    let numCaixa = prompt("Número da CS:", ""); if (numCaixa === null) { fecharPieMenu(); return; } 
-    let labelText = (numCaixa.trim() === "" || numCaixa === "00") ? "CS S/N" : "CS " + numCaixa;
-    let rect = new fabric.Rect({ width: 80, height: 50, fill: '#bdc3c7', stroke: '#34495e', strokeWidth: 2, rx: 4, ry: 4, originX: 'center', originY: 'center' });
-    let lbl = new fabric.Text(labelText, { fontSize: 18, fill: '#2c3e50', fontWeight: 'bold', fontFamily: 'Roboto', originX: 'center', originY: 'center' });
-    let group = new fabric.Group([rect, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    canvas.add(group); activeTarget = group; if (isConnectingMode) definirInicio(group); fecharPieMenu(); salvarEstado();
+    let numCaixa = prompt("Número da CS:", ""); if (numCaixa === null) { fecharPieMenu(); return; }
+    colocarEquipamento(montarCS(x, y, numCaixa)); fecharPieMenu(); salvarEstado();
 }
 
 function inserirSubida(x, y) {
-    let p = new fabric.Polyline([ {x: -30, y: 0}, {x: -15, y: 0}, {x: -5, y: -25}, {x: 5, y: 25}, {x: 15, y: 0}, {x: 30, y: 0} ], { fill: 'transparent', stroke: 'red', strokeWidth: 4, originX: 'center', originY: 'center' });
-    // Fundo branco sólido para tapar o ponto cinza que ficou embaixo
-    let bgCircle = new fabric.Circle({ radius: 20, fill: '#ffffff', originX: 'center', originY: 'center' });
-    let group = new fabric.Group([bgCircle, p], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    canvas.add(group); activeTarget = group; if (isConnectingMode) definirInicio(group); fecharPieMenu(); salvarEstado();
+    colocarEquipamento(montarSubida(x, y)); fecharPieMenu(); salvarEstado();
 }
 
 function inserirPosteMapeado(x, y, tipo) {
-    let circle = new fabric.Circle({ radius: 18, fill: '#3498db', originX: 'center', originY: 'center' });
-    let lbl = new fabric.Text(tipo.replace('Poste ', ''), { fontSize: 13, fill: 'white', fontWeight: 'bold', originX: 'center', originY: 'center' });
-    let group = new fabric.Group([circle, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    canvas.add(group); activeTarget = group; if (isConnectingMode) definirInicio(group); abrirSubMenuPoste(x, y); salvarEstado();
+    colocarEquipamento(montarPoste(x, y, tipo)); abrirSubMenuPoste(x, y); salvarEstado();
 }
 
 function addSimbologia(tipo) {
@@ -595,7 +621,7 @@ function adicionarRuaLivre() {
     let vpt = canvas.viewportTransform; let centerX = (-vpt[4] + (canvas.width / 2)) / canvas.getZoom(); let centerY = (-vpt[5] + (canvas.height / 2)) / canvas.getZoom();
     let offsetX = (Math.random() * 100) + 50; let offsetY = (Math.random() * 100) + 50;
     let finalX = centerX + (Math.random() > 0.5 ? offsetX : -offsetX); let finalY = centerY + (Math.random() > 0.5 ? offsetY : -offsetY);
-    let textRua = new fabric.Text(nomeRua.toUpperCase(), { left: finalX, top: finalY, fontSize: 24, fill: '#2980b9', fontWeight: 'bold', fontFamily: 'Roboto', backgroundColor: 'rgba(255,255,255,0.85)', originX: 'center', originY: 'center', selectable: true, hasControls: true, lockScalingX: true, lockScalingY: true, lockRotation: false, lockMovementX: false, lockMovementY: false, id_tipo: 'rua_livre', snapAngle: 45, snapThreshold: 45 });
+    let textRua = montarRua(finalX, finalY, nomeRua);
     canvas.add(textRua); canvas.setActiveObject(textRua); salvarEstado();
 }
 
