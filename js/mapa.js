@@ -500,6 +500,120 @@ function atualizarResumo() {
     if (ativo && ativo.rua && document.activeElement !== campoRua) campoRua.value = ativo.rua;
 }
 
+// ==========================================
+// ENDEREÇO: BUSCAR E PREENCHER A RUA SOZINHO
+// ==========================================
+// Usa o Nominatim (busca gratuita do OpenStreetMap). Regra deles: no máximo
+// 1 pedido por segundo, por isso os pedidos passam por uma fila.
+const NOMINATIM = 'https://nominatim.openstreetmap.org';
+let filaEndereco = Promise.resolve();
+let ultimoPedidoEndereco = 0;
+let ultimaRuaGps = '';        // última rua que o GPS informou
+let ruaDigitadaEm = null;     // rua do GPS no momento em que o técnico digitou a rua à mão
+
+function pedirNominatim(caminho) {
+    const tarefa = filaEndereco.then(async () => {
+        const espera = Math.max(0, 1100 - (Date.now() - ultimoPedidoEndereco));
+        if (espera) await new Promise(r => setTimeout(r, espera));
+        ultimoPedidoEndereco = Date.now();
+        const resp = await fetch(NOMINATIM + caminho, { headers: { 'Accept-Language': 'pt-BR' } });
+        if (!resp.ok) throw new Error('Nominatim ' + resp.status);
+        return resp.json();
+    });
+    filaEndereco = tarefa.catch(() => {});
+    return tarefa;
+}
+
+function resumirEndereco(a) {
+    if (!a) return {};
+    return {
+        rua: a.road || a.pedestrian || a.residential || '',
+        numero: a.house_number || '',
+        bairro: a.suburb || a.neighbourhood || a.quarter || '',
+        cidade: a.city || a.town || a.village || a.municipality || '',
+        uf: (a['ISO3166-2-lvl4'] || '').replace('BR-', '') || a.state || ''
+    };
+}
+
+async function buscarEndereco() {
+    const campo = document.getElementById('mapaBusca');
+    const texto = campo.value.trim();
+    if (!texto) { avisoMapa('Digite a rua, o número e a cidade.'); campo.focus(); return; }
+    if (!navigator.onLine) { avisoMapa('Sem internet para buscar o endereço. Arraste o mapa até o local.'); return; }
+    campo.blur();
+    avisoMapa('Buscando endereço…');
+    let resultados;
+    try {
+        resultados = await pedirNominatim('/search?format=jsonv2&limit=5&countrycodes=br&addressdetails=1&q=' + encodeURIComponent(texto));
+    } catch (e) {
+        avisoMapa('Não deu para buscar agora. Confira a internet e tente de novo.'); return;
+    }
+    if (!resultados || !resultados.length) {
+        avisoMapa('Endereço não encontrado. Tente sem o número, ou com o bairro e a cidade.'); return;
+    }
+    if (resultados.length === 1) { irParaEndereco(resultados[0]); return; }
+    escolherEndereco(resultados);
+}
+
+// Mais de um resultado: o técnico escolhe na lista.
+function escolherEndereco(resultados) {
+    let painel = document.getElementById('painelEnderecos');
+    if (!painel) {
+        painel = document.createElement('div'); painel.id = 'painelEnderecos'; painel.className = 'sheet-fundo';
+        painel.onclick = (e) => { if (e.target === painel) fecharPainel('painelEnderecos'); };
+        painel.innerHTML = '<div class="sheet"><div class="sheet-titulo">Qual destes?</div><div class="sheet-sub">Toque no endereço certo</div><div class="lista-enderecos" id="listaEnderecos"></div><button class="sheet-cancelar" onclick="fecharPainel(\'painelEnderecos\')">Cancelar</button></div>';
+        document.body.appendChild(painel);
+    }
+    const lista = document.getElementById('listaEnderecos'); lista.innerHTML = '';
+    resultados.forEach(r => {
+        const b = document.createElement('button'); b.type = 'button';
+        b.innerText = r.display_name.replace(/, Brasil$/, '').replace(/, Região .*?(,|$)/, '$1');
+        b.onclick = () => { fecharPainel('painelEnderecos'); irParaEndereco(r); };
+        lista.appendChild(b);
+    });
+    abrirPainel('painelEnderecos');
+}
+
+function irParaEndereco(r) {
+    const end = resumirEndereco(r.address);
+    gps.seguindo = false;
+    mapa.setView([parseFloat(r.lat), parseFloat(r.lon)], 18);
+    atualizarModo();
+    if (end.rua) { document.getElementById('mapaRua').value = end.rua; ruaDigitadaEm = null; }
+    mapeamento.endereco = Object.assign({ buscado: document.getElementById('mapaBusca').value.trim() }, end);
+    salvarMapeamento();
+    avisoMapa('Arraste o mapa até a mira ficar em cima do primeiro poste e toque em "Poste na mira".');
+}
+
+// Depois de marcar um poste com internet, pergunta ao mapa o nome da rua daquele ponto.
+async function preencherRuaPeloGps(ponto) {
+    if (!navigator.onLine) return;
+    let r;
+    try { r = await pedirNominatim(`/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=${ponto.lat}&lon=${ponto.lng}`); }
+    catch (e) { return; }
+    const end = resumirEndereco(r && r.address);
+    const p = acharPonto(mapeamento, ponto.id);
+    if (!p || !end.rua) return;
+    // Se o técnico digitou a rua à mão nesta mesma rua do GPS, respeita o que ele digitou.
+    const respeitarDigitada = ruaDigitadaEm !== null && ruaDigitadaEm === end.rua && p.rua;
+    if (!respeitarDigitada) {
+        ruaDigitadaEm = null;
+        p.rua = end.rua;
+        if (p.id === mapeamento.ativo) document.getElementById('mapaRua').value = end.rua;
+    }
+    p.numeroAprox = end.numero; p.bairro = end.bairro; p.cidade = end.cidade; p.uf = end.uf;
+    ultimaRuaGps = end.rua;
+    if (!mapeamento.endereco || !mapeamento.endereco.cidade) mapeamento.endereco = Object.assign({}, end);
+    salvarMapeamento(); desenharMapeamento();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const busca = document.getElementById('mapaBusca');
+    if (busca) busca.addEventListener('keydown', (e) => { if (e.key === 'Enter') buscarEndereco(); });
+    const rua = document.getElementById('mapaRua');
+    if (rua) rua.addEventListener('input', () => { ruaDigitadaEm = ultimaRuaGps; });
+});
+
 // Para os testes automáticos (no navegador "module" não existe).
 if (typeof module !== 'undefined') {
     module.exports = { distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };

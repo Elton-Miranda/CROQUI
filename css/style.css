@@ -189,3 +189,5 @@ legend { font-size: 11px; font-weight: bold; color: var(--primary); background: 
 .ctop-campos input, .ctop-campos select { flex: 1; height: 48px; }
 .mapa-aviso { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 600; background: rgba(44,62,80,0.92); color: white; font-size: 14px; padding: 10px 12px; border-radius: 10px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
 .mapa-aviso.visivel { opacity: 1; }
+.lista-enderecos { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.lista-enderecos button { text-align: left; justify-content: flex-start; padding: 12px; min-height: 48px; font-size: 14px; background: #f4f4f4; }

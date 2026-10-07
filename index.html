@@ -249,6 +249,10 @@
             <div class="mapa-titulo">Mapear trajeto</div>
             <button onclick="abrirMenuMapa()" class="mapa-menu-btn" aria-label="Mais opções">⋯</button>
         </div>
+        <div class="mapa-busca">
+            <input type="text" id="mapaBusca" placeholder="Rua, número, cidade" autocomplete="off" enterkeyhint="search">
+            <button onclick="buscarEndereco()" class="mapa-btn-buscar" aria-label="Buscar endereço">🔎</button>
+        </div>
         <div class="mapa-area">
             <div id="mapa"></div>
             <div id="mapaMira" class="mapa-mira" aria-hidden="true"></div>
