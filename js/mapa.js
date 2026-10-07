@@ -66,6 +66,7 @@ function removerPonto(m, id) {
         m.trechos.push({ de: a.de, para: b.para, distancia: a.distancia + b.distancia, metragem: a.metragem + b.metragem, editada: a.editada || b.editada, tipo: 'instalado' });
     }
     m.pontos = m.pontos.filter(p => p.id !== id);
+    atualizarRetiradas(m);
     if (m.ativo === id) {
         m.ativo = chegando.length ? chegando[0].de : (m.pontos.length ? m.pontos[m.pontos.length - 1].id : null);
     }
@@ -82,6 +83,54 @@ function recalcularTrechosDoPonto(m, id) {
 }
 
 function totalMapeado(m) { return m.trechos.reduce((s, t) => s + (Number(t.metragem) || 0), 0); }
+
+// --- RETIRADA: caminho entre dois postes pelos trechos mapeados ---
+function acharTrecho(m, a, b) { return m.trechos.find(t => (t.de === a && t.para === b) || (t.de === b && t.para === a)) || null; }
+
+// Caminho de postes de "a" até "b" seguindo os trechos (funciona com ramais).
+function caminhoEntre(m, a, b) {
+    if (a === b || !acharPonto(m, a) || !acharPonto(m, b)) return null;
+    const anterior = { [a]: null }, fila = [a];
+    while (fila.length) {
+        const atual = fila.shift();
+        if (atual === b) break;
+        m.trechos.forEach(t => {
+            const viz = t.de === atual ? t.para : (t.para === atual ? t.de : null);
+            if (viz !== null && !(viz in anterior)) { anterior[viz] = atual; fila.push(viz); }
+        });
+    }
+    if (!(b in anterior)) return null;
+    const caminho = [];
+    for (let x = b; x !== null; x = anterior[x]) caminho.unshift(Number(x));
+    return caminho;
+}
+
+// Cria uma retirada do poste "a" ao "b". Cada vão começa com a mesma metragem do cabo lançado.
+function criarRetirada(m, a, b, metragensAntigas) {
+    const caminho = caminhoEntre(m, a, b);
+    if (!caminho) return null;
+    const vaos = [];
+    for (let i = 0; i < caminho.length - 1; i++) {
+        const de = caminho[i], para = caminho[i + 1];
+        const antiga = metragensAntigas && metragensAntigas[de + '-' + para];
+        const t = acharTrecho(m, de, para);
+        vaos.push({ de, para, metragem: antiga !== undefined ? antiga : (t ? t.metragem : 0) });
+    }
+    return { de: a, ate: b, trechos: vaos };
+}
+
+function totalRetirado(m) {
+    return (m.retiradas || []).reduce((s, r) => s + r.trechos.reduce((x, t) => x + (Number(t.metragem) || 0), 0), 0);
+}
+
+// Depois de apagar ou mover pontos: refaz o caminho de cada retirada,
+// mantendo as metragens já informadas. Retirada sem caminho é descartada.
+function atualizarRetiradas(m) {
+    m.retiradas = (m.retiradas || []).map(r => {
+        const antigas = {}; r.trechos.forEach(t => { antigas[t.de + '-' + t.para] = t.metragem; });
+        return criarRetirada(m, r.de, r.ate, antigas);
+    }).filter(Boolean);
+}
 
 // ==========================================
 // ESTADO, SALVAMENTO E MAPA
@@ -528,8 +577,95 @@ function editarTrecho(trecho) {
     });
 }
 
+// --- Painel da retirada ("do poste 2 ao 7") ---
+let aposRetirada = null;
+
+function numeroDoPonto(id) { return mapeamento.pontos.findIndex(p => p.id === id) + 1; }
+
+function abrirPainelRetirada(depois) {
+    if (mapeamento.pontos.length < 2) { alert('Marque os postes antes de informar a retirada.'); return; }
+    aposRetirada = depois || null;
+    let painel = document.getElementById('painelRetirada');
+    if (!painel) {
+        painel = document.createElement('div'); painel.id = 'painelRetirada'; painel.className = 'sheet-fundo';
+        painel.innerHTML = `<div class="sheet">
+            <div class="sheet-titulo" id="retiradaTitulo">Retirada de cabo</div>
+            <div class="sheet-sub">Informe do poste ao poste onde o cabo antigo foi retirado. Pode adicionar mais de um trecho.</div>
+            <div class="retirada-faixa">
+                <span>Do poste</span><select id="retiradaDe" class="smart-select"></select>
+                <span>até</span><select id="retiradaAte" class="smart-select"></select>
+                <button type="button" onclick="adicionarRetirada()">＋</button>
+            </div>
+            <div class="sheet-erro" id="retiradaErro"></div>
+            <div id="retiradaLista" class="retirada-lista"></div>
+            <button class="btn-full" onclick="confirmarRetirada()">Confirmar retirada</button>
+            <button class="sheet-cancelar" onclick="semRetirada()">Não houve retirada</button>
+        </div>`;
+        document.body.appendChild(painel);
+    }
+    document.getElementById('retiradaTitulo').innerText = mapeamento.retiradaRespondida ? 'Retirada de cabo' : 'Houve retirada de cabo?';
+    const opcoes = mapeamento.pontos.map((p, i) => `<option value="${p.id}">${i + 1}</option>`).join('');
+    const de = document.getElementById('retiradaDe'), ate = document.getElementById('retiradaAte');
+    de.innerHTML = opcoes; ate.innerHTML = opcoes;
+    de.value = String(mapeamento.pontos[0].id); ate.value = String(mapeamento.pontos[mapeamento.pontos.length - 1].id);
+    document.getElementById('retiradaErro').innerText = '';
+    desenharListaRetirada();
+    abrirPainel('painelRetirada');
+}
+
+function adicionarRetirada() {
+    const a = Number(document.getElementById('retiradaDe').value), b = Number(document.getElementById('retiradaAte').value);
+    const erro = document.getElementById('retiradaErro');
+    if (a === b) { erro.innerText = 'Escolha dois postes diferentes.'; return; }
+    const r = criarRetirada(mapeamento, a, b);
+    if (!r) { erro.innerText = 'Esses postes não estão ligados por trechos de cabo.'; return; }
+    // Vão que já está numa retirada não entra de novo.
+    const jaTem = new Set(); mapeamento.retiradas.forEach(x => x.trechos.forEach(t => { jaTem.add(t.de + '-' + t.para); jaTem.add(t.para + '-' + t.de); }));
+    if (r.trechos.some(t => jaTem.has(t.de + '-' + t.para))) { erro.innerText = 'Parte desse trecho já está na retirada.'; return; }
+    erro.innerText = '';
+    mapeamento.retiradas.push(r);
+    salvarMapeamento(); desenharListaRetirada(); desenharMapeamento();
+}
+
+function desenharListaRetirada() {
+    const lista = document.getElementById('retiradaLista'); lista.innerHTML = '';
+    if (!mapeamento.retiradas.length) { lista.innerHTML = '<div class="vazio">Nenhum trecho de retirada.</div>'; return; }
+    mapeamento.retiradas.forEach((r, ri) => {
+        const bloco = document.createElement('div'); bloco.className = 'retirada-bloco';
+        const total = r.trechos.reduce((s, t) => s + (Number(t.metragem) || 0), 0);
+        bloco.innerHTML = `<div class="retirada-cab"><b>Do poste ${numeroDoPonto(r.de)} ao ${numeroDoPonto(r.ate)}</b><span>${r.trechos.length} ${r.trechos.length === 1 ? 'vão' : 'vãos'} · ${total}m</span><button type="button" aria-label="Remover">✕</button></div>`;
+        bloco.querySelector('button').onclick = () => { mapeamento.retiradas.splice(ri, 1); salvarMapeamento(); desenharListaRetirada(); desenharMapeamento(); };
+        r.trechos.forEach(t => {
+            const linha = document.createElement('label'); linha.className = 'retirada-vao';
+            linha.innerHTML = `<span>${numeroDoPonto(t.de)} → ${numeroDoPonto(t.para)}</span><input type="text" inputmode="decimal" value="${t.metragem}"><em>m</em>`;
+            linha.querySelector('input').onchange = (e) => {
+                const v = parseFloat(String(e.target.value).replace(',', '.'));
+                if (isNaN(v) || v <= 0) { e.target.value = t.metragem; return; }
+                t.metragem = Math.round(v * 10) / 10; salvarMapeamento(); desenharListaRetirada(); atualizarResumo();
+            };
+            bloco.appendChild(linha);
+        });
+        lista.appendChild(bloco);
+    });
+}
+
+function fecharRetirada() {
+    mapeamento.retiradaRespondida = true;
+    salvarMapeamento(); desenharMapeamento();
+    fecharPainel('painelRetirada');
+    const depois = aposRetirada; aposRetirada = null;
+    if (depois) depois();
+}
+function confirmarRetirada() { fecharRetirada(); }
+function semRetirada() {
+    if (mapeamento.retiradas.length && !confirm('Apagar os trechos de retirada informados?')) return;
+    mapeamento.retiradas = [];
+    fecharRetirada();
+}
+
 // --- Menu ⋯ ---
 const ACOES_MENU_MAPA = [
+    { rotulo: '✂️ Retirada de cabo', acao: () => abrirPainelRetirada() },
     { rotulo: '🎯 Ver todo o trajeto', acao: () => enquadrarMapeamento() },
     { rotulo: '🗑️ Apagar todo o mapeamento', perigo: true, acao: () => { if (confirm('Apagar TODOS os pontos deste mapeamento?')) limparMapeamento(); } }
 ];
@@ -589,6 +725,10 @@ function desenharMapeamento() {
         // Linha invisível e larga por cima: facilita tocar no trecho com o dedo.
         L.polyline(ll, { color: '#000', weight: 28, opacity: 0.01 }).on('click', () => editarTrecho(t)).addTo(camadaDesenho);
     });
+    (mapeamento.retiradas || []).forEach(r => r.trechos.forEach(t => {
+        const a = acharPonto(mapeamento, t.de), b = acharPonto(mapeamento, t.para);
+        if (a && b) L.polyline([[a.lat, a.lng], [b.lat, b.lng]], { color: '#27ae60', weight: 4, dashArray: '8 8', opacity: 1, interactive: false }).addTo(camadaDesenho);
+    }));
     mapeamento.pontos.forEach((p, i) => {
         L.marker([p.lat, p.lng], { icon: iconePonto(p, i + 1), zIndexOffset: p.id === mapeamento.ativo ? 500 : 0 })
             .on('click', () => abrirPainelPonto(p.id))
@@ -600,7 +740,8 @@ function atualizarResumo() {
     const el = document.getElementById('mapaResumo');
     if (!el) return;
     const n = mapeamento.pontos.length;
-    el.innerText = n ? `${n} ${n === 1 ? 'poste' : 'postes'} · ${totalMapeado(mapeamento)}m` : 'Nenhum poste marcado';
+    const ret = totalRetirado(mapeamento);
+    el.innerText = n ? `${n} ${n === 1 ? 'poste' : 'postes'} · ${totalMapeado(mapeamento)}m` + (ret ? ` · retirada ${ret}m` : '') : 'Nenhum poste marcado';
     const ativo = acharPonto(mapeamento, mapeamento.ativo);
     const campoRua = document.getElementById('mapaRua');
     if (ativo && ativo.rua && document.activeElement !== campoRua) campoRua.value = ativo.rua;
@@ -769,6 +910,8 @@ function posicoesDasRuas(m, pos) {
 
 function gerarCroquiDoMapa() {
     if (mapeamento.pontos.length < 2) { alert('Marque pelo menos 2 postes para gerar o croqui.'); return; }
+    // Pergunta da retirada (uma vez por mapeamento; dá para mudar depois no menu ⋯).
+    if (!mapeamento.retiradaRespondida) { abrirPainelRetirada(() => gerarCroquiDoMapa()); return; }
     const temDesenho = canvas.getObjects().some(o => o.id_tipo && o.id_tipo !== 'marcador');
     if (temDesenho && !confirm('Já existe um desenho no croqui.\n\nSubstituir pelo desenho gerado do mapa?')) return;
 
@@ -840,7 +983,8 @@ function enxugarMapeamento(m) {
     return {
         v: 1, criadoEm: m.criadoEm, autor: m.autor || '', oc: m.oc || '', endereco: m.endereco || null,
         pontos: m.pontos.map(p => ({ id: p.id, lat: r6(p.lat), lng: r6(p.lng), prec: p.prec, origem: p.origem, hora: p.hora, rua: p.rua || '', tipo: p.tipo, caixa: p.caixa || null, itens: p.itens || [], cidade: p.cidade || '' })),
-        trechos: m.trechos.map(t => ({ de: t.de, para: t.para, distancia: t.distancia, metragem: t.metragem, editada: !!t.editada, tipo: t.tipo || 'instalado' }))
+        trechos: m.trechos.map(t => ({ de: t.de, para: t.para, distancia: t.distancia, metragem: t.metragem, editada: !!t.editada, tipo: t.tipo || 'instalado' })),
+        retiradas: m.retiradas || [], retiradaRespondida: !!m.retiradaRespondida
     };
 }
 
@@ -856,7 +1000,7 @@ async function decodificarMapeamento(codigo) {
     const d = JSON.parse(new TextDecoder().decode(bytes));
     if (!d || !Array.isArray(d.pontos) || !Array.isArray(d.trechos)) throw new Error('Mapeamento inválido');
     const m = novoMapeamento();
-    Object.assign(m, { criadoEm: d.criadoEm || m.criadoEm, autor: d.autor || '', oc: d.oc || '', endereco: d.endereco || null, pontos: d.pontos, trechos: d.trechos, retiradas: d.retiradas || [] });
+    Object.assign(m, { criadoEm: d.criadoEm || m.criadoEm, autor: d.autor || '', oc: d.oc || '', endereco: d.endereco || null, pontos: d.pontos, trechos: d.trechos, retiradas: d.retiradas || [], retiradaRespondida: !!d.retiradaRespondida });
     migrarMapeamento(m);
     m.proximoId = m.pontos.reduce((mx, p) => Math.max(mx, p.id), 0) + 1;
     m.ativo = m.pontos.length ? m.pontos[m.pontos.length - 1].id : null;
@@ -984,6 +1128,15 @@ async function imagemDoMapa(m, larg, alt) {
         ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 1.5; ctx.strokeRect(mx - w / 2, my - 12, w, 24);
         ctx.fillStyle = '#c0392b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, mx, my + 1);
     });
+    // Retirada: linha verde tracejada ao lado do cabo lançado
+    (m.retiradas || []).forEach(r => r.trechos.forEach(t => {
+        const a = acharPonto(m, t.de), b = acharPonto(m, t.para);
+        if (!a || !b) return;
+        const pa = px(a), pb = px(b), len = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
+        const nx = -(pb.y - pa.y) / len * 9, ny = (pb.x - pa.x) / len * 9;
+        ctx.strokeStyle = '#27ae60'; ctx.lineWidth = 4; ctx.setLineDash([10, 7]);
+        ctx.beginPath(); ctx.moveTo(pa.x + nx, pa.y + ny); ctx.lineTo(pb.x + nx, pb.y + ny); ctx.stroke(); ctx.setLineDash([]);
+    }));
     // Pontos numerados
     m.pontos.forEach((p, i) => {
         const q = px(p);
@@ -1064,7 +1217,18 @@ async function adicionarPaginasDoMapa(doc) {
         startY: (doc.lastAutoTable ? doc.lastAutoTable.finalY : 22) + 8, head: [['Trecho', 'Distância no mapa', 'Cabo lançado', 'Metragem']], body: trechos,
         theme: 'striped', headStyles: { fillColor: [231, 76, 60] }, styles: { fontSize: 9, cellPadding: 2 }
     });
+    if ((m.retiradas || []).length) {
+        const linhas = [];
+        m.retiradas.forEach(r => r.trechos.forEach(t => linhas.push([`${numeroDoPontoEm(m, t.de)} → ${numeroDoPontoEm(m, t.para)}`, `${t.metragem}m`, `Retirada do poste ${numeroDoPontoEm(m, r.de)} ao ${numeroDoPontoEm(m, r.ate)}`])));
+        linhas.push(['Total', `${totalRetirado(m)}m`, '']);
+        doc.autoTable({
+            startY: (doc.lastAutoTable ? doc.lastAutoTable.finalY : 22) + 8, head: [['Trecho', 'Cabo retirado', '']], body: linhas,
+            theme: 'striped', headStyles: { fillColor: [39, 174, 96] }, styles: { fontSize: 9, cellPadding: 2 }
+        });
+    }
 }
+
+function numeroDoPontoEm(m, id) { return m.pontos.findIndex(p => p.id === id) + 1; }
 
 // ==========================================
 // CROQUI EM CIMA DO MAPA (PÁGINA 1 DO PDF)
@@ -1155,5 +1319,5 @@ async function comporCroquiComMapa(fotoSemRuas, fotoComRuas, t) {
 
 // Para os testes automáticos (no navegador "module" não existe).
 if (typeof module !== 'undefined') {
-    module.exports = { lngParaPx, latParaPx, pxPorMetroMercator, croquiParaLatLng, getMapeamento: () => mapeamento, setMapeamento: (m) => { mapeamento = m; }, codificarMapeamento, decodificarMapeamento, projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
+    module.exports = { caminhoEntre, criarRetirada, totalRetirado, atualizarRetiradas, lngParaPx, latParaPx, pxPorMetroMercator, croquiParaLatLng, getMapeamento: () => mapeamento, setMapeamento: (m) => { mapeamento = m; }, codificarMapeamento, decodificarMapeamento, projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
 }

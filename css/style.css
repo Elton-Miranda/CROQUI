@@ -208,3 +208,19 @@ legend { font-size: 11px; font-weight: bold; color: var(--primary); background: 
 .item-qtd input { width: 70px; height: 48px; text-align: center; font-size: 20px; font-weight: bold; }
 .pm { position: relative; }
 .pm-itens { position: absolute; top: -8px; right: -10px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: #f39c12; color: white; font-size: 10px; line-height: 16px; text-align: center; border: 2px solid white; }
+
+/* painel da retirada */
+.retirada-faixa { display: grid; grid-template-columns: auto 1fr auto 1fr 52px; align-items: center; gap: 6px; font-size: 14px; color: #555; }
+.retirada-faixa select { height: 48px; font-size: 18px; font-weight: bold; text-align: center; }
+.retirada-faixa button { height: 48px; font-size: 22px; background: var(--success); color: white; }
+.retirada-lista { display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow-y: auto; margin-bottom: 4px; }
+.retirada-lista .vazio { color: #999; font-size: 13px; }
+.retirada-bloco { border: 2px solid #c9ecd6; border-radius: 10px; padding: 8px; background: #f2fbf5; }
+.retirada-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 14px; }
+.retirada-cab b { color: #1e8449; }
+.retirada-cab span { flex: 1; color: #555; font-size: 13px; }
+.retirada-cab button { width: 36px; height: 36px; background: white; color: var(--danger); }
+.retirada-vao { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 14px; }
+.retirada-vao span { flex: 1; color: #333; }
+.retirada-vao input { width: 80px; height: 40px; text-align: center; font-size: 16px; font-weight: bold; }
+.retirada-vao em { font-style: normal; color: #777; }

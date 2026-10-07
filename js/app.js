@@ -388,8 +388,8 @@ function intersectLines(p1, p2, p3, p4) {
 
 // Remove a retirada que o app desenhou num PDF anterior, para não acumular.
 function removerRetiradaAutomatica() {
-    canvas.getObjects().filter(o => o.auto_retirada || o.id_tipo === 'conector_retirada' || (o.id_tipo === 'cabo' && o.sub_tipo === 'retirado'))
-        .forEach(o => canvas.remove(o));
+    // Só a retirada automática (linha verde espelhada). A retirada vinda do mapeamento nunca é apagada aqui.
+    canvas.getObjects().filter(o => o.auto_retirada && !o.retirada_mapa).forEach(o => canvas.remove(o));
 }
 
 function gerarRetiradaAutomatica(cabosVermelhos) {
@@ -713,7 +713,9 @@ function confirmarSalvar() {
     let cabosInstalados = canvas.getObjects().filter(o => o.id_tipo === 'cabo' && o.sub_tipo === 'instalado');
     // Sempre parte do zero: se o PDF for gerado de novo, a retirada antiga sai e só volta se confirmar de novo.
     removerRetiradaAutomatica();
-    if (cabosInstalados.length > 0) { if (confirm("📦 Houve RETIRADA DE CABO nesta OS?\n\nClique em [OK] para que o sistema crie a linha Verde de retirada automaticamente.")) { gerarRetiradaAutomatica(cabosInstalados); } }
+    // Croqui gerado do mapeamento: a retirada já foi informada lá (do poste X ao Y), não pergunta de novo.
+    let croquiDoMapa = typeof croquiTemMapa === 'function' && croquiTemMapa();
+    if (cabosInstalados.length > 0 && !croquiDoMapa) { if (confirm("📦 Houve RETIRADA DE CABO nesta OS?\n\nClique em [OK] para que o sistema crie a linha Verde de retirada automaticamente.")) { gerarRetiradaAutomatica(cabosInstalados); } }
 
     // MÁGICA: Executar tudo num bloco síncrono ultra-rápido para o celular não cortar a tela
     setTimeout(() => {
