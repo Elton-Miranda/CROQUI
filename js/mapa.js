@@ -703,7 +703,107 @@ function enquadrarCroqui(pts) {
     zoomLevel = z;
 }
 
+// ==========================================
+// COMPARTILHAR O MAPEAMENTO POR LINK (WhatsApp)
+// ==========================================
+// O mapeamento vai DENTRO do link (compactado, depois do #). Quem mapeou
+// manda o link; quem vai executar abre e o mapeamento entra no app dele.
+// Não precisa de servidor, e o conteúdo não passa por nenhum site.
+function paraBase64Url(bytes) {
+    let bin = ''; bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function deBase64Url(txt) {
+    const bin = atob(txt.replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(bin, c => c.charCodeAt(0));
+}
+async function transformar(bytes, stream) {
+    const resp = new Response(new Blob([bytes]).stream().pipeThrough(stream));
+    return new Uint8Array(await resp.arrayBuffer());
+}
+
+// Só o necessário, com coordenadas em 6 casas (~10cm).
+function enxugarMapeamento(m) {
+    const r6 = v => Math.round(v * 1e6) / 1e6;
+    return {
+        v: 1, criadoEm: m.criadoEm, autor: m.autor || '', oc: m.oc || '', endereco: m.endereco || null,
+        pontos: m.pontos.map(p => ({ id: p.id, lat: r6(p.lat), lng: r6(p.lng), prec: p.prec, origem: p.origem, hora: p.hora, rua: p.rua || '', tipo: p.tipo, caixa: p.caixa || null, material: p.material || '', cidade: p.cidade || '' })),
+        trechos: m.trechos.map(t => ({ de: t.de, para: t.para, distancia: t.distancia, metragem: t.metragem, editada: !!t.editada, tipo: t.tipo || 'instalado' }))
+    };
+}
+
+async function codificarMapeamento(m) {
+    const bytes = new TextEncoder().encode(JSON.stringify(enxugarMapeamento(m)));
+    if (typeof CompressionStream !== 'undefined') return 'z' + paraBase64Url(await transformar(bytes, new CompressionStream('deflate-raw')));
+    return 'j' + paraBase64Url(bytes);
+}
+
+async function decodificarMapeamento(codigo) {
+    let bytes = deBase64Url(codigo.slice(1));
+    if (codigo[0] === 'z') bytes = await transformar(bytes, new DecompressionStream('deflate-raw'));
+    const d = JSON.parse(new TextDecoder().decode(bytes));
+    if (!d || !Array.isArray(d.pontos) || !Array.isArray(d.trechos)) throw new Error('Mapeamento inválido');
+    const m = novoMapeamento();
+    Object.assign(m, { criadoEm: d.criadoEm || m.criadoEm, autor: d.autor || '', oc: d.oc || '', endereco: d.endereco || null, pontos: d.pontos, trechos: d.trechos });
+    m.proximoId = m.pontos.reduce((mx, p) => Math.max(mx, p.id), 0) + 1;
+    m.ativo = m.pontos.length ? m.pontos[m.pontos.length - 1].id : null;
+    m.recebido = true;
+    return m;
+}
+
+async function gerarLinkMapeamento() {
+    const oc = (document.getElementById('inputOC') || {}).value || '';
+    if (oc) mapeamento.oc = oc;
+    if (!mapeamento.autor) mapeamento.autor = (document.getElementById('inputEncarregado') || {}).value || '';
+    const base = location.href.split('#')[0];
+    return base + '#mapa=' + await codificarMapeamento(mapeamento);
+}
+
+async function compartilharMapeamento() {
+    if (!mapeamento.pontos.length) { alert('Ainda não há pontos para compartilhar.'); return; }
+    const link = await gerarLinkMapeamento();
+    const total = totalMapeado(mapeamento);
+    const texto = `Mapeamento de rede${mapeamento.oc ? ' - OC ' + mapeamento.oc : ''}: ${mapeamento.pontos.length} postes, ${total}m de cabo.` +
+        (mapeamento.endereco && mapeamento.endereco.rua ? ` ${mapeamento.endereco.rua}${mapeamento.endereco.cidade ? ', ' + mapeamento.endereco.cidade : ''}.` : '') +
+        ' Abra no celular para importar no Croqui:';
+    if (navigator.share) {
+        try { await navigator.share({ title: 'Mapeamento Croqui', text: texto, url: link }); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    // Sem o compartilhar do sistema: abre o WhatsApp direto e também copia o link.
+    try { await navigator.clipboard.writeText(texto + ' ' + link); avisoMapa('Link copiado. Cole no WhatsApp.'); } catch (e) {}
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto + ' ' + link), '_blank');
+}
+
+// Ao abrir o app por um link com #mapa=..., importa o mapeamento.
+async function importarMapeamentoDoLink() {
+    const hash = location.hash || '';
+    if (!hash.startsWith('#mapa=')) return false;
+    history.replaceState(null, '', location.href.split('#')[0]); // limpa o link para não importar de novo
+    let recebido;
+    try { recebido = await decodificarMapeamento(hash.slice(6)); }
+    catch (e) { alert('Este link de mapeamento está incompleto ou corrompido. Peça para enviarem de novo.'); return false; }
+    const resumo = `${recebido.pontos.length} postes, ${totalMapeado(recebido)}m de cabo` + (recebido.autor ? `, mapeado por ${recebido.autor}` : '') + (recebido.oc ? ` (OC ${recebido.oc})` : '');
+    const msg = mapeamento.pontos.length
+        ? `Você recebeu um mapeamento: ${resumo}.\n\nIsso vai SUBSTITUIR o mapeamento que está no seu celular. Importar?`
+        : `Você recebeu um mapeamento: ${resumo}.\n\nImportar?`;
+    if (!confirm(msg)) return false;
+    mapeamento = recebido;
+    salvarMapeamento();
+    const campoOC = document.getElementById('inputOC');
+    if (campoOC && !campoOC.value && recebido.oc) { campoOC.value = recebido.oc; if (typeof agendarAutoSalvar === 'function') agendarAutoSalvar(); }
+    abrirMapa();
+    setTimeout(() => avisoMapa('Mapeamento importado. Confira os postes e toque em "Gerar croqui".'), 300);
+    return true;
+}
+
+ACOES_MENU_MAPA.unshift({ rotulo: '📤 Compartilhar mapeamento (WhatsApp)', acao: () => compartilharMapeamento() });
+if (typeof window !== 'undefined') {
+    window.addEventListener('load', () => { setTimeout(importarMapeamentoDoLink, 300); });
+    window.addEventListener('hashchange', importarMapeamentoDoLink);
+}
+
 // Para os testes automáticos (no navegador "module" não existe).
 if (typeof module !== 'undefined') {
-    module.exports = { projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
+    module.exports = { codificarMapeamento, decodificarMapeamento, projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
 }
