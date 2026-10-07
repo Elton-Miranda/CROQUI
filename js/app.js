@@ -691,7 +691,10 @@ function removerMaterialManual(i) { listaMateriaisManuais.splice(i, 1); renderLi
 // Ordem dos slides. No modo só mapa: boas-vindas, mapear com GPS e gerar o PDF.
 const ORDEM_SLIDES = MODO_SO_MAPA ? [0, 4, 3] : [0, 1, 2, 3, 4];
 let slideAtual = 0; const totalSlides = ORDEM_SLIDES.length;
-function abrirTutorial() { slideAtual = 0; atualizarVisorTutorial(); document.getElementById('modalTutorial').style.display = 'flex'; }
+function abrirTutorial() {
+    // Modo só mapa: o "❓ Ajuda" mostra o tutorial da nova versão (js/tutorial.js).
+    if (MODO_SO_MAPA && typeof abrirTutorialNovo === 'function') { abrirTutorialNovo(); return; }
+    slideAtual = 0; atualizarVisorTutorial(); document.getElementById('modalTutorial').style.display = 'flex'; }
 function fecharTutorial() { document.getElementById('modalTutorial').style.display = 'none'; localStorage.setItem('croqui_tutorial_visto', 'true'); }
 function mudarSlide(direcao) { slideAtual += direcao; if (slideAtual < 0) slideAtual = 0; if (slideAtual >= totalSlides) slideAtual = totalSlides - 1; atualizarVisorTutorial(); }
 function atualizarVisorTutorial() {
@@ -702,7 +705,11 @@ function atualizarVisorTutorial() {
     btnPrev.style.visibility = slideAtual === 0 ? 'hidden' : 'visible';
     if (slideAtual === totalSlides - 1) { btnNext.classList.add('hidden'); btnFim.classList.remove('hidden'); } else { btnNext.classList.remove('hidden'); btnFim.classList.add('hidden'); }
 }
-window.addEventListener('load', function() { if (!localStorage.getItem('croqui_tutorial_visto')) { setTimeout(abrirTutorial, 800); } });
+window.addEventListener('load', function() {
+    // Primeira vez nesta versão: mostra o tutorial novo (também para quem já viu o antigo).
+    if (MODO_SO_MAPA && typeof tutorialNovoJaVisto === 'function') { if (!tutorialNovoJaVisto()) setTimeout(abrirTutorialNovo, 800); return; }
+    if (!localStorage.getItem('croqui_tutorial_visto')) { setTimeout(abrirTutorial, 800); }
+});
 
 // --- MÁGICA DE FORMATAÇÃO (CABO E PRIMÁRIA) ---
 function formatarDuasCasas(val, max) {

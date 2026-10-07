@@ -16,6 +16,7 @@ Para o teste com o grupo de técnicos, o app está no **modo só mapa**: abre di
 
 - **App completo (só para você):** abra o link com `?completo=1` no final, por exemplo `https://elton-miranda.github.io/CROQUI/?completo=1`.
 - **Desligar o modo piloto para todos:** em `js/app.js`, troque `MODO_SO_MAPA_PADRAO = true` por `false`.
+- **Tutorial da nova versão:** 6 telas ilustradas que aparecem sozinhas na primeira vez que a pessoa abre esta versão (também no botão ❓ Ajuda). Para mostrar de novo a todos, troque o nome da chave `CHAVE_TUTORIAL_NOVO` em `js/tutorial.js`.
 
 ## Mapear com GPS (pré-mapeamento)
 
@@ -62,4 +63,4 @@ git push
 
 ## Atualizando o app
 
-Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.4.1`). Assim os celulares descartam a cópia antiga guardada.
+Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.5.1`). Assim os celulares descartam a cópia antiga guardada.

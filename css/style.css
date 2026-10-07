@@ -237,3 +237,22 @@ legend { font-size: 11px; font-weight: bold; color: var(--primary); background: 
 .croqui-vazio p { margin: 8px 0 0; font-size: 16px; max-width: 300px; }
 .croqui-vazio p.sub { font-size: 14px; color: #777; }
 .croqui-vazio button { pointer-events: auto; margin-top: 18px; height: 52px; padding: 0 28px; font-size: 17px; font-weight: bold; background: var(--success); color: white; border-radius: 12px; }
+
+/* --- TUTORIAL DA NOVA VERSÃO --- */
+.tut2-fundo { display: none; position: fixed; inset: 0; z-index: 1400; background: rgba(20, 10, 35, 0.72); align-items: center; justify-content: center; padding: 16px; }
+.tut2-fundo.aberto { display: flex; }
+.tut2-caixa { position: relative; width: 100%; max-width: 380px; background: #fff; border-radius: 18px; overflow: hidden; padding: 18px 0 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); animation: fadeIn 0.3s; }
+.tut2-pular { position: absolute; top: 8px; right: 10px; z-index: 2; background: transparent; color: #888; font-size: 14px; padding: 8px 10px; }
+.tut2-trilho { display: flex; transition: transform 0.35s ease; }
+.tut2-slide { flex: 0 0 100%; box-sizing: border-box; padding: 18px 22px 0; text-align: center; }
+.tut2-svg { width: 100%; max-width: 300px; height: auto; display: block; margin: 0 auto 14px; border-radius: 12px; }
+.tut2-slide h2 { color: var(--primary); font-size: 20px; margin: 0 0 8px; }
+.tut2-slide p { color: #444; font-size: 15px; line-height: 1.45; margin: 0; min-height: 88px; }
+.tut2-dica { display: inline-block; margin-top: 6px; color: #777; font-size: 13px; }
+.tut2-pontos { display: flex; justify-content: center; gap: 6px; margin: 14px 0 12px; }
+.tut2-pontos span { width: 8px; height: 8px; border-radius: 4px; background: #ddd; transition: 0.3s; cursor: pointer; }
+.tut2-pontos span.ativo { width: 22px; background: var(--primary); }
+.tut2-botoes { display: flex; gap: 10px; padding: 0 18px; }
+.tut2-botoes button { flex: 1; height: 50px; font-size: 16px; font-weight: bold; border-radius: 12px; }
+.tut2-voltar { background: #f0f0f0; color: #555; }
+.tut2-proximo { background: var(--primary); color: #fff; }
