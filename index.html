@@ -41,10 +41,16 @@
 
     <div id="canvas-container">
         <canvas id="c"></canvas>
+        <div id="croquiVazio" class="croqui-vazio">
+            <div>🗺️</div>
+            <p>O croqui é gerado a partir do mapa.</p>
+            <p class="sub">Marque os postes no mapa e toque em <b>✅ Gerar croqui</b>.</p>
+            <button onclick="abrirMapa()">Abrir o mapa</button>
+        </div>
     </div>
 
     <div class="bottom-toolbar">
-        <button onclick="abrirMapa()" class="tool-btn btn-mapa">🗺️ Mapear</button>
+        <button onclick="abrirMapa()" class="tool-btn btn-mapa"><span class="so-completo">🗺️ Mapear</span><span class="so-piloto">🗺️ Mapa do trajeto</span></button>
         <div class="dropup-container">
             <button id="btnConectar" class="tool-btn" onclick="toggleSubMenuCabos()">🔗 Cabos</button>
             <div id="submenu-cabos" class="submenu-up hidden">

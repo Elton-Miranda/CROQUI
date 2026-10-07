@@ -10,6 +10,13 @@ App de croqui de campo: o técnico desenha o trajeto do cabo, marca postes e cai
 
 O croqui é salvo sozinho no celular a cada alteração. Se o app fechar, ao abrir de novo está tudo lá. Ele só é apagado no botão **Novo**.
 
+## Modo piloto (só mapa)
+
+Para o teste com o grupo de técnicos, o app está no **modo só mapa**: abre direto no mapa e esconde a parte antiga (grade de pontinhos, menu redondo e os botões Cabos, Rua, Apagar e Zoom). No croqui, o técnico só vê o desenho gerado e pode corrigir a metragem tocando no cabo.
+
+- **App completo (só para você):** abra o link com `?completo=1` no final, por exemplo `https://elton-miranda.github.io/CROQUI/?completo=1`.
+- **Desligar o modo piloto para todos:** em `js/app.js`, troque `MODO_SO_MAPA_PADRAO = true` por `false`.
+
 ## Mapear com GPS (pré-mapeamento)
 
 O jeito mais rápido de fazer o croqui é não desenhar:
@@ -55,4 +62,4 @@ git push
 
 ## Atualizando o app
 
-Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.3.2`). Assim os celulares descartam a cópia antiga guardada.
+Depois de mudar algum arquivo, aumente o número de `VERSAO` no começo do `sw.js` (por exemplo, `croqui-v2.4.1`). Assim os celulares descartam a cópia antiga guardada.

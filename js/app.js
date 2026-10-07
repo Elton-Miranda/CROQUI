@@ -23,6 +23,18 @@ let zoomLevel = 1;
 let tempCTOX = 0;
 let tempCTOY = 0;
 
+// ==========================================
+// MODO SÓ MAPA (piloto com o grupo de teste)
+// ==========================================
+// Com o modo ligado, o app usa só o fluxo novo: mapear os postes e gerar o
+// croqui. A parte antiga (grade de pontinhos, menu redondo, botões Cabos,
+// Rua, Apagar e Zoom) fica escondida.
+// Para ver o app completo, abra o link com ?completo=1 no final.
+// Para desligar o modo para todo mundo, troque true por false abaixo.
+const MODO_SO_MAPA_PADRAO = true;
+const MODO_SO_MAPA = MODO_SO_MAPA_PADRAO && !new URLSearchParams(location.search).has('completo');
+if (MODO_SO_MAPA) document.documentElement.classList.add('so-mapa');
+
 // Salvamento automático (ver final do arquivo)
 const CHAVE_RASCUNHO = 'croqui_rascunho_v2';
 const CHAVE_PERFIL = 'croqui_perfil_tecnico';
@@ -56,6 +68,7 @@ function salvarEstado() {
     indiceHistorico++;
     atualizarBotoesHistorico();
     if (typeof agendarAutoSalvar === 'function') agendarAutoSalvar();
+    if (typeof atualizarAvisoCroquiVazio === 'function') atualizarAvisoCroquiVazio();
 }
 
 function atualizarBotoesHistorico() {
@@ -150,6 +163,13 @@ function initCanvasArea() {
         let pointer = canvas.getPointer(opt.e);
         let ehEquipamento = obj && obj.id_tipo && obj.id_tipo.startsWith('equipamento');
 
+        if (MODO_SO_MAPA) {
+            // Só mapa: tocar num cabo permite corrigir a metragem. O resto é feito no mapa.
+            if (obj && obj.id_tipo === 'cabo') { activeTarget = obj; clickCoords = { x: pointer.x, y: pointer.y }; abrirPieMenu(opt.e, 'cabo'); }
+            else fecharPieMenu();
+            return;
+        }
+
         if (isConnectingMode) {
             handleConnectionClick(ehEquipamento ? obj : pontoDaGradeComoNo(pointer));
             return;
@@ -224,7 +244,8 @@ function desenharGrade(opt) {
     if (!mostrarGrade) return;
     let ctx = opt.ctx; let v = canvas.viewportTransform; let zoom = v[0];
     ctx.save();
-    ctx.fillStyle = '#e0e0e0'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = MODO_SO_MAPA ? '#f5f5f5' : '#e0e0e0'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (MODO_SO_MAPA) { ctx.restore(); return; } // sem os pontinhos da grade
     let x0 = -v[4] / zoom, y0 = -v[5] / zoom;
     let x1 = x0 + canvas.width / zoom, y1 = y0 + canvas.height / zoom;
     let inicio = pontoDaGrade(x0, y0);
@@ -250,6 +271,7 @@ function novoCroqui() {
         isConnectingMode = false; modoCaboAtivo = null; startNode = null; marcadorInicio = null; activeTarget = null; listaMateriaisManuais = [];
         canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); zoomLevel = 1;
         limparDadosDaOS(); salvarEstado(); updateStatus("Tela limpa. Novo projeto iniciado.");
+        if (MODO_SO_MAPA && typeof abrirMapa === 'function') abrirMapa();
     }
 }
 
@@ -666,13 +688,16 @@ function renderListaMateriais() {
 function removerMaterialManual(i) { listaMateriaisManuais.splice(i, 1); renderListaMateriais(); agendarAutoSalvar(); }
 
 // --- TUTORIAL INTERATIVO ---
-let slideAtual = 0; const totalSlides = 5;
+// Ordem dos slides. No modo só mapa: boas-vindas, mapear com GPS e gerar o PDF.
+const ORDEM_SLIDES = MODO_SO_MAPA ? [0, 4, 3] : [0, 1, 2, 3, 4];
+let slideAtual = 0; const totalSlides = ORDEM_SLIDES.length;
 function abrirTutorial() { slideAtual = 0; atualizarVisorTutorial(); document.getElementById('modalTutorial').style.display = 'flex'; }
 function fecharTutorial() { document.getElementById('modalTutorial').style.display = 'none'; localStorage.setItem('croqui_tutorial_visto', 'true'); }
 function mudarSlide(direcao) { slideAtual += direcao; if (slideAtual < 0) slideAtual = 0; if (slideAtual >= totalSlides) slideAtual = totalSlides - 1; atualizarVisorTutorial(); }
 function atualizarVisorTutorial() {
-    for (let i = 0; i < totalSlides; i++) { document.getElementById(`slide-${i}`).classList.add('hidden'); document.getElementById(`slide-${i}`).classList.remove('active'); document.querySelectorAll('.dot')[i].classList.remove('active'); }
-    document.getElementById(`slide-${slideAtual}`).classList.remove('hidden'); document.getElementById(`slide-${slideAtual}`).classList.add('active'); document.querySelectorAll('.dot')[slideAtual].classList.add('active');
+    document.querySelectorAll('.tut-slide').forEach(el => { el.classList.add('hidden'); el.classList.remove('active'); });
+    let atual = document.getElementById(`slide-${ORDEM_SLIDES[slideAtual]}`); atual.classList.remove('hidden'); atual.classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => { d.style.display = i < totalSlides ? '' : 'none'; d.classList.toggle('active', i === slideAtual); });
     let btnPrev = document.getElementById('btnTutPrev'), btnNext = document.getElementById('btnTutNext'), btnFim = document.getElementById('btnTutFim');
     btnPrev.style.visibility = slideAtual === 0 ? 'hidden' : 'visible';
     if (slideAtual === totalSlides - 1) { btnNext.classList.add('hidden'); btnFim.classList.remove('hidden'); } else { btnNext.classList.remove('hidden'); btnFim.classList.add('hidden'); }
@@ -689,6 +714,12 @@ function formatarDuasCasas(val, max) {
 
 // --- EXPORTAÇÃO (PDF COM LIMITES DE REGRAS DE NEGÓCIO E CORREÇÃO MOBILE) ---
 function confirmarSalvar() {
+    if (MODO_SO_MAPA && !(typeof croquiTemMapa === 'function' && croquiTemMapa())) {
+        fecharModais();
+        alert('Primeiro marque os postes no mapa e toque em "Gerar croqui".');
+        if (typeof abrirMapa === 'function') abrirMapa();
+        return;
+    }
     let oc = document.getElementById('inputOC').value.replace(/[^0-9]/g, '') || "S/I"; 
     let causa = document.getElementById('inputCausa').value || "S/I"; 
     let motivo = document.getElementById('inputMotivo').value || "S/I"; 
@@ -1168,5 +1199,25 @@ window.addEventListener('pagehide', autoSalvarAgora);
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker não registrado', e));
+    });
+}
+
+// --- MODO SÓ MAPA: abre direto no mapa e mostra um aviso quando o croqui está vazio ---
+function atualizarAvisoCroquiVazio() {
+    let aviso = document.getElementById('croquiVazio');
+    if (!aviso) return;
+    let vazio = !canvas.getObjects().some(o => o.id_tipo && o.id_tipo !== 'marcador');
+    aviso.style.display = MODO_SO_MAPA && vazio ? 'flex' : 'none';
+}
+if (MODO_SO_MAPA) {
+    canvas.on('after:render', atualizarAvisoCroquiVazio);
+    window.addEventListener('load', () => {
+        // Espera o rascunho ser recuperado. Sem croqui gerado, vai direto para o mapa.
+        setTimeout(() => {
+            atualizarAvisoCroquiVazio();
+            let temCroqui = canvas.getObjects().some(o => o.id_tipo && o.id_tipo !== 'marcador');
+            let mapaJaAberto = document.getElementById('tela-mapa') && document.getElementById('tela-mapa').classList.contains('aberta');
+            if (!temCroqui && !mapaJaAberto && typeof abrirMapa === 'function' && !location.hash.startsWith('#mapa=')) abrirMapa();
+        }, 700);
     });
 }
