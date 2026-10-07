@@ -1057,3 +1057,11 @@ window.addEventListener('DOMContentLoaded', () => {
 // Garante o salvamento quando o app vai para o fundo (ligação, troca de app, tela apagando).
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') autoSalvarAgora(); });
 window.addEventListener('pagehide', autoSalvarAgora);
+
+// --- FUNCIONAR SEM INTERNET ---
+// Registra o service worker (sw.js), que guarda o app no celular.
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker não registrado', e));
+    });
+}
