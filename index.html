@@ -69,6 +69,21 @@
 
     <div id="status-bar">Modo: Navegação Livre</div>
 
+    <!-- Painel de metragem: abre a cada trecho de cabo. Botões grandes = 1 toque. -->
+    <div id="painelMetragem" class="sheet-fundo">
+        <div class="sheet">
+            <div class="sheet-titulo" id="metragemTitulo">Metragem do trecho</div>
+            <div class="sheet-sub" id="metragemSub">Toque na metragem deste vão</div>
+            <div class="metragem-chips" id="metragemChips"></div>
+            <div class="metragem-outra">
+                <input type="number" id="metragemOutra" inputmode="decimal" min="1" max="2000" step="0.5" placeholder="Outra metragem (m)">
+                <button class="metragem-ok" onclick="confirmarMetragemDigitada()">OK</button>
+            </div>
+            <div class="sheet-erro" id="metragemErro"></div>
+            <button class="sheet-cancelar" onclick="cancelarMetragem()">Cancelar (não lançar este trecho)</button>
+        </div>
+    </div>
+
     <div id="modalCTO" class="modal">
         <div class="modal-content" style="max-width: 320px;">
             <span class="close" onclick="fecharModais(); fecharPieMenu();">&times;</span>
@@ -193,7 +208,7 @@
                 <h2 style="color: var(--danger);">Lançando Cabos</h2>
                 <p style="font-size: 14px; color: #555;">Clique em <b>🔗 Cabos</b> e escolha o tipo (Instalar ou Existente). A retirada é gerada na hora do PDF.</p>
                 <div style="font-size: 35px; margin: 15px 0;">🔘 〰️ 🔘</div>
-                <p style="font-size: 13px; color: #777;">Toque em 2 bolinhas ou postes para ligá-los. O cabo sai com 40m automático. Para editar o tamanho, <b>toque na linha do cabo</b> e aperte o lápis ✏️.</p>
+                <p style="font-size: 13px; color: #777;">Toque em 2 pontos ou postes para ligá-los. A cada trecho o app pergunta a <b>metragem</b>: é só tocar no número. Para corrigir depois, <b>toque na linha do cabo</b> e aperte o lápis ✏️.</p>
             </div>
 
             <div class="tut-slide hidden" id="slide-3">

@@ -282,9 +282,52 @@ function mesmoPonto(a, b) { return a && b && a.left === b.left && a.top === b.to
 function handleConnectionClick(node) {
     if (!startNode) { definirInicio(node); return; }
     if (startNode === node || mesmoPonto(startNode, node)) return;
-    desenharCabo(startNode, node, "40", modoCaboAtivo);
-    activeTarget = node; clickCoords = { x: node.left, y: node.top }; abrirPieMenu(null, node.id_tipo);
-    definirInicio(node);
+    let inicio = startNode;
+    // Metragem obrigatória: não existe mais "40m automático". Cancelou = trecho não é lançado.
+    pedirMetragem({ titulo: 'Metragem do trecho', sub: modoCaboAtivo === 'existente' ? 'Cabo EXISTENTE (preto)' : 'Cabo NOVO instalado (vermelho)' }, function(valor) {
+        desenharCabo(inicio, node, String(valor), modoCaboAtivo);
+        definirInicio(node);
+        activeTarget = node; clickCoords = { x: node.left, y: node.top }; abrirPieMenu(null, node.id_tipo);
+    });
+}
+
+// --- PAINEL DE METRAGEM ---
+const METRAGENS_RAPIDAS = [20, 30, 35, 40, 45, 50, 60, 80];
+let callbackMetragem = null;
+
+function pedirMetragem(opcoes, aoConfirmar) {
+    callbackMetragem = aoConfirmar;
+    document.getElementById('metragemTitulo').innerText = opcoes.titulo || 'Metragem do trecho';
+    document.getElementById('metragemSub').innerText = opcoes.sub || 'Toque na metragem deste vão';
+    document.getElementById('metragemErro').innerText = '';
+    let campo = document.getElementById('metragemOutra'); campo.value = '';
+    let chips = document.getElementById('metragemChips'); chips.innerHTML = '';
+    METRAGENS_RAPIDAS.forEach(m => {
+        let b = document.createElement('button');
+        b.type = 'button'; b.innerText = m + 'm';
+        if (opcoes.atual !== undefined && Number(opcoes.atual) === m) b.classList.add('atual');
+        b.addEventListener('click', () => fecharMetragem(m));
+        chips.appendChild(b);
+    });
+    if (opcoes.atual !== undefined && !METRAGENS_RAPIDAS.includes(Number(opcoes.atual))) campo.value = opcoes.atual;
+    document.getElementById('painelMetragem').classList.add('aberto');
+}
+
+function confirmarMetragemDigitada() {
+    let v = parseFloat(String(document.getElementById('metragemOutra').value).replace(',', '.'));
+    if (isNaN(v) || v <= 0) { document.getElementById('metragemErro').innerText = 'Digite uma metragem maior que zero.'; return; }
+    if (v > 2000) { document.getElementById('metragemErro').innerText = 'Metragem muito alta. Confira o valor.'; return; }
+    fecharMetragem(Math.round(v * 10) / 10);
+}
+
+function cancelarMetragem() { fecharMetragem(null); }
+
+function fecharMetragem(valor) {
+    document.getElementById('painelMetragem').classList.remove('aberto');
+    travarToqueFalso();
+    let cb = callbackMetragem; callbackMetragem = null;
+    if (valor !== null && cb) cb(valor);
+    else updateStatus('Trecho não lançado.');
 }
 
 function resetStartNode() {
@@ -306,15 +349,14 @@ function desenharCabo(p1, p2, metragem, tipo) {
 
 function editarMetragemCabo() {
     travarToqueFalso();
-    if (activeTarget && activeTarget.id_tipo === 'cabo') {
-        let novaMetragem = prompt("Editar Metragem (m):", activeTarget.valor_metragem);
-        if (novaMetragem !== null && novaMetragem.trim() !== "") {
-            activeTarget.valor_metragem = parseFloat(novaMetragem);
-            let textoCabo = activeTarget.getObjects()[1]; textoCabo.set({ text: novaMetragem + "m" });
-            activeTarget.addWithUpdate(); canvas.renderAll(); salvarEstado(); updateStatus("Metragem atualizada para " + novaMetragem + "m");
-        }
-    }
+    let cabo = activeTarget;
     fecharPieMenu();
+    if (!cabo || cabo.id_tipo !== 'cabo') return;
+    pedirMetragem({ titulo: 'Corrigir metragem', sub: 'Valor atual: ' + cabo.valor_metragem + 'm', atual: cabo.valor_metragem }, function(valor) {
+        cabo.valor_metragem = valor;
+        cabo.getObjects()[1].set({ text: valor + "m" });
+        cabo.addWithUpdate(); canvas.renderAll(); salvarEstado(); updateStatus("Metragem atualizada para " + valor + "m");
+    });
 }
 
 // --- MÁGICA GEOMÉTRICA E RETIRADA AUTOMÁTICA ---
