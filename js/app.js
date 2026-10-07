@@ -1045,6 +1045,7 @@ function limparDadosDaOS() {
     let motivo = document.getElementById('inputMotivo');
     if (motivo && motivo.tagName === 'SELECT') motivo.innerHTML = '<option value="">Selecione a Causa primeiro...</option>';
     try { localStorage.removeItem(CHAVE_RASCUNHO); } catch (e) {}
+    if (typeof limparMapeamento === 'function') limparMapeamento(); // OS nova = mapeamento novo
     // O perfil (nome, RE, placa) continua guardado de propósito.
 }
 

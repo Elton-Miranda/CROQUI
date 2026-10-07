@@ -14,6 +14,10 @@
     <link rel="stylesheet" href="css/style.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+
+    <!-- Mapa (modo Mapear trajeto) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -40,6 +44,7 @@
     </div>
 
     <div class="bottom-toolbar">
+        <button onclick="abrirMapa()" class="tool-btn btn-mapa">🗺️ Mapear</button>
         <div class="dropup-container">
             <button id="btnConectar" class="tool-btn" onclick="toggleSubMenuCabos()">🔗 Cabos</button>
             <div id="submenu-cabos" class="submenu-up hidden">
@@ -237,6 +242,72 @@
         </div>
     </div>
 
+    <!-- TELA DE MAPEAMENTO DO TRAJETO (GPS / ENDEREÇO) -->
+    <div id="tela-mapa" class="tela-mapa">
+        <div class="mapa-topo">
+            <button onclick="fecharMapa()" class="mapa-voltar" aria-label="Voltar ao croqui">←</button>
+            <div class="mapa-titulo">Mapear trajeto</div>
+            <button onclick="abrirMenuMapa()" class="mapa-menu-btn" aria-label="Mais opções">⋯</button>
+        </div>
+        <div class="mapa-area">
+            <div id="mapa"></div>
+            <div id="mapaMira" class="mapa-mira" aria-hidden="true"></div>
+            <button id="mapaGpsChip" class="mapa-gps-chip" onclick="seguirGps()">📡 Procurando GPS…</button>
+        </div>
+        <div class="mapa-painel">
+            <div class="mapa-info">
+                <span id="mapaResumo">Nenhum poste marcado</span>
+                <input type="text" id="mapaRua" placeholder="Rua atual" autocomplete="off">
+            </div>
+            <button id="btnPosteAqui" class="mapa-btn-principal" onclick="marcarPoste()">📍 Poste aqui</button>
+            <div class="mapa-acoes">
+                <button onclick="marcarCaixa('CTOP')">CTOP</button>
+                <button onclick="marcarCaixa('CEO')">CEO</button>
+                <button onclick="marcarCaixa('Subida')">Subida</button>
+                <button onclick="marcarMaterialPonto()">Material</button>
+                <button onclick="desfazerPonto()">↩︎</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Painel de um ponto do mapa -->
+    <div id="painelPonto" class="sheet-fundo" onclick="if(event.target===this) fecharPainelPonto()">
+        <div class="sheet">
+            <div class="sheet-titulo" id="pontoTitulo">Ponto</div>
+            <div class="sheet-sub" id="pontoSub"></div>
+            <div class="ponto-grupo" id="pontoTipos"></div>
+            <div class="ponto-grupo" id="pontoCaixas"></div>
+            <div class="ponto-acoes">
+                <button onclick="continuarDoPonto()">↪︎ Continuar daqui (ramal)</button>
+                <button onclick="moverPontoParaMira()">✛ Mover para a mira</button>
+                <button onclick="marcarMaterialPonto(pontoEmEdicao)">📦 Material</button>
+                <button class="perigo" onclick="apagarPonto()">🗑️ Apagar ponto</button>
+            </div>
+            <button class="sheet-cancelar" onclick="fecharPainelPonto()">Fechar</button>
+        </div>
+    </div>
+
+    <!-- Painel da CTOP: tipo, número e contagem -->
+    <div id="painelCtop" class="sheet-fundo">
+        <div class="sheet">
+            <div class="sheet-titulo">CTOP neste poste</div>
+            <div class="sheet-sub">Tipo da caixa</div>
+            <div class="ponto-grupo" id="ctopTipos"></div>
+            <div class="ctop-campos">
+                <input type="text" id="ctopNum" inputmode="numeric" placeholder="Número (ex: 01)" autocomplete="off">
+                <select id="ctopContagem" class="smart-select">
+                    <option value="">Contagem…</option>
+                    <option>01-08</option><option>09-16</option><option>17-24</option><option>25-32</option>
+                    <option>33-40</option><option>41-48</option><option>49-56</option><option>57-64</option>
+                </select>
+            </div>
+            <div class="sheet-erro" id="ctopErro"></div>
+            <button class="btn-full" onclick="confirmarCtop()">Marcar CTOP</button>
+            <button class="sheet-cancelar" onclick="fecharPainel('painelCtop')">Cancelar</button>
+        </div>
+    </div>
+
     <script src="js/app.js"></script>
+    <script src="js/mapa.js"></script>
 </body>
 </html>
