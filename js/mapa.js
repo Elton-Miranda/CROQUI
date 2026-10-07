@@ -607,14 +607,103 @@ async function preencherRuaPeloGps(ponto) {
     salvarMapeamento(); desenharMapeamento();
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+if (typeof window !== 'undefined') window.addEventListener('DOMContentLoaded', () => {
     const busca = document.getElementById('mapaBusca');
     if (busca) busca.addEventListener('keydown', (e) => { if (e.key === 'Enter') buscarEndereco(); });
     const rua = document.getElementById('mapaRua');
     if (rua) rua.addEventListener('input', () => { ruaDigitadaEm = ultimaRuaGps; });
 });
 
+// ==========================================
+// GERAR O CROQUI A PARTIR DO MAPEAMENTO
+// ==========================================
+// Converte latitude/longitude em posição no desenho: norte para cima e
+// escala escolhida para um vão típico ocupar uns 140px na tela.
+function projetarPontos(m) {
+    const pos = {};
+    if (!m.pontos.length) return { pos, escala: 1 };
+    const lat0 = m.pontos[0].lat, lng0 = m.pontos[0].lng;
+    const kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 110574;
+    const dists = m.trechos.map(t => t.distancia || distanciaMetros(acharPonto(m, t.de), acharPonto(m, t.para))).filter(d => d > 0).sort((a, b) => a - b);
+    const mediana = dists.length ? dists[Math.floor(dists.length / 2)] : 40;
+    const escala = Math.min(6, Math.max(0.3, 140 / mediana)); // pixels por metro
+    let minX = Infinity, minY = Infinity;
+    m.pontos.forEach(p => {
+        const x = (p.lng - lng0) * kx * escala, y = -(p.lat - lat0) * ky * escala;
+        pos[p.id] = { x, y }; minX = Math.min(minX, x); minY = Math.min(minY, y);
+    });
+    // Começa perto do canto da grade, com folga para os nomes das ruas.
+    Object.values(pos).forEach(q => { q.x = Math.round(q.x - minX + 220); q.y = Math.round(q.y - minY + 220); });
+    return { pos, escala };
+}
+
+// Agrupa pontos seguidos da mesma rua para escrever o nome uma vez só, ao lado do trecho.
+function posicoesDasRuas(m, pos) {
+    const grupos = {};
+    m.pontos.forEach(p => { if (p.rua) (grupos[p.rua] = grupos[p.rua] || []).push(pos[p.id]); });
+    return Object.keys(grupos).map(rua => {
+        const pts = grupos[rua];
+        const cx = pts.reduce((s, q) => s + q.x, 0) / pts.length, cy = pts.reduce((s, q) => s + q.y, 0) / pts.length;
+        let ang = 0;
+        if (pts.length > 1) {
+            const a = pts[0], b = pts[pts.length - 1];
+            ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+            if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
+            ang = Math.round(ang / 15) * 15;
+        }
+        // Afasta o nome 55px para o lado do cabo (perpendicular ao trajeto).
+        const r = ang * Math.PI / 180;
+        return { rua, x: cx - Math.sin(r) * 55, y: cy + Math.cos(r) * 55, angulo: ang };
+    });
+}
+
+function gerarCroquiDoMapa() {
+    if (mapeamento.pontos.length < 2) { alert('Marque pelo menos 2 postes para gerar o croqui.'); return; }
+    const temDesenho = canvas.getObjects().some(o => o.id_tipo && o.id_tipo !== 'marcador');
+    if (temDesenho && !confirm('Já existe um desenho no croqui.\n\nSubstituir pelo desenho gerado do mapa?')) return;
+
+    const { pos } = projetarPontos(mapeamento);
+    if (typeof resetStartNode === 'function') resetStartNode();
+    navegandoHistorico = true; // um único passo de "desfazer" para tudo
+    canvas.getObjects().slice().forEach(o => canvas.remove(o));
+
+    mapeamento.trechos.forEach(t => {
+        const a = pos[t.de], b = pos[t.para];
+        if (a && b) desenharCabo({ left: a.x, top: a.y }, { left: b.x, top: b.y }, String(t.metragem), t.tipo || 'instalado');
+    });
+
+    mapeamento.pontos.forEach((p, i) => {
+        const q = pos[p.id];
+        let g;
+        if (p.caixa && p.caixa.tipo === 'CTOP') g = montarCTO(q.x, q.y, p.caixa.num || 'S/N', p.caixa.contagem || '', 'black', p.caixa.ctoTipo);
+        else if (p.caixa && p.caixa.tipo === 'CEO') g = montarCEO(q.x, q.y, p.caixa.nova);
+        else if (p.caixa && p.caixa.tipo === 'Subida') g = montarSubida(q.x, q.y);
+        else g = montarPoste(q.x, q.y, p.tipo);
+        g.set({ ponto_mapa: p.id, ponto_numero: i + 1 });
+        if (p.material) g.set('materiais_gastos', p.material);
+        canvas.add(g);
+    });
+
+    posicoesDasRuas(mapeamento, pos).forEach(r => canvas.add(montarRua(r.x, r.y, r.rua, r.angulo)));
+
+    canvas.getObjects().forEach(o => { if (o.id_tipo && (o.id_tipo.startsWith('equipamento') || o.id_tipo === 'rua_livre')) canvas.bringToFront(o); });
+    enquadrarCroqui(Object.values(pos));
+    navegandoHistorico = false;
+    salvarEstado();
+    fecharMapa();
+    updateStatus(`Croqui gerado do mapa: ${mapeamento.pontos.length} pontos, ${totalMapeado(mapeamento)}m`);
+}
+
+// Ajusta o zoom e a posição para o croqui inteiro aparecer na tela.
+function enquadrarCroqui(pts) {
+    const xs = pts.map(q => q.x), ys = pts.map(q => q.y);
+    const minX = Math.min(...xs) - 100, maxX = Math.max(...xs) + 100, minY = Math.min(...ys) - 100, maxY = Math.max(...ys) + 100;
+    const z = Math.max(0.4, Math.min(1.2, canvas.width / (maxX - minX), canvas.height / (maxY - minY)));
+    canvas.setViewportTransform([z, 0, 0, z, (canvas.width - (minX + maxX) * z) / 2, (canvas.height - (minY + maxY) * z) / 2]);
+    zoomLevel = z;
+}
+
 // Para os testes automáticos (no navegador "module" não existe).
 if (typeof module !== 'undefined') {
-    module.exports = { distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
+    module.exports = { projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };
 }

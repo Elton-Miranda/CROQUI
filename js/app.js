@@ -32,7 +32,7 @@ const customProps = [
     'id_tipo', 'sub_tipo', 'valor_metragem', 'perPixelTargetFind', 'hasControls', 
     'selectable', 'lockScalingX', 'lockScalingY', 'lockRotation', 'snapAngle', 
     'snapThreshold', 'is_cto', 'cto_num', 'cto_contagem', 'materiais_gastos', 
-    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada', 'cto_tipo', 'ceo_nova', 'ponto_mapa'
+    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada', 'cto_tipo', 'ceo_nova', 'ponto_mapa', 'ponto_numero'
 ];
 
 let historicoCanvas = [];
@@ -713,7 +713,10 @@ function confirmarSalvar() {
             if (o.id_tipo === 'cabo' && o.valor_metragem) { if (o.sub_tipo === 'instalado') totais.redeInstalada += o.valor_metragem; if (o.sub_tipo === 'retirado') totais.redeRetirada += o.valor_metragem; }
             if (o.id_tipo === 'rua_livre' && o.text && !ruasExtraidas.includes(o.text)) ruasExtraidas.push(o.text);
             if (o.id_tipo === 'equipamento_cabo' && o.is_cto) { let chaveCto = o.cto_num + "|" + o.cto_contagem; if (!ctosExtraidas.some(c => c.chave === chaveCto)) ctosExtraidas.push({ chave: chaveCto, num: o.cto_num, cont: o.cto_contagem }); }
-            if (o.id_tipo === 'equipamento_cabo' && o.materiais_gastos) { let nomeCaixa = o.is_cto ? `CTO ${o.cto_num}` : "CEO"; totais.itensExtras.push({ item: `Material Local (${nomeCaixa})`, qtd: o.materiais_gastos }); }
+            if (o.id_tipo && o.id_tipo.startsWith('equipamento') && o.materiais_gastos) {
+                let nomeCaixa = o.is_cto ? `CTO ${o.cto_num}` : (o.id_tipo === 'equipamento_cabo' ? "CEO" : (o.ponto_mapa ? `Poste ${o.ponto_numero || ''}`.trim() : "Poste"));
+                totais.itensExtras.push({ item: `Material Local (${nomeCaixa})`, qtd: o.materiais_gastos });
+            }
         });
 
         let strEndereco = ruasExtraidas.length > 0 ? ruasExtraidas.join(" / ") : "S/I"; let strCaixas = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.num).join(", ") : "S/I"; let strDist = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.cont).join(", ") : "S/I";
