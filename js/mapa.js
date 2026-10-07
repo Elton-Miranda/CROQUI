@@ -803,6 +803,155 @@ if (typeof window !== 'undefined') {
     window.addEventListener('hashchange', importarMapeamentoDoLink);
 }
 
+// ==========================================
+// PÁGINAS DO MAPA NO PDF (FISCALIZAÇÃO)
+// ==========================================
+// Monta uma imagem com o mapa real (OpenStreetMap), o trajeto e os pontos
+// numerados, e uma tabela com coordenadas, precisão do GPS e horário de
+// cada marcação, com link para abrir o ponto no Google Maps.
+const TILE_URL = (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+
+function lngParaPx(lng, z) { return (lng + 180) / 360 * 256 * Math.pow(2, z); }
+function latParaPx(lat, z) {
+    const r = lat * Math.PI / 180;
+    return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 256 * Math.pow(2, z);
+}
+
+// Maior zoom em que todos os pontos cabem na imagem (com margem).
+function zoomQueCabe(pontos, larg, alt) {
+    for (let z = 19; z >= 3; z--) {
+        const xs = pontos.map(p => lngParaPx(p.lng, z)), ys = pontos.map(p => latParaPx(p.lat, z));
+        if (Math.max(...xs) - Math.min(...xs) <= larg - 160 && Math.max(...ys) - Math.min(...ys) <= alt - 160) return z;
+    }
+    return 3;
+}
+
+function carregarImagem(url, limiteMs) {
+    return new Promise(resolve => {
+        const img = new Image(); img.crossOrigin = 'anonymous';
+        const t = setTimeout(() => resolve(null), limiteMs);
+        img.onload = () => { clearTimeout(t); resolve(img); };
+        img.onerror = () => { clearTimeout(t); resolve(null); };
+        img.src = url;
+    });
+}
+
+async function imagemDoMapa(m, larg, alt) {
+    const z = zoomQueCabe(m.pontos, larg, alt);
+    const xs = m.pontos.map(p => lngParaPx(p.lng, z)), ys = m.pontos.map(p => latParaPx(p.lat, z));
+    const x0 = (Math.min(...xs) + Math.max(...xs)) / 2 - larg / 2, y0 = (Math.min(...ys) + Math.max(...ys)) / 2 - alt / 2;
+    const tela = document.createElement('canvas'); tela.width = larg; tela.height = alt;
+    const ctx = tela.getContext('2d');
+    ctx.fillStyle = '#eceff1'; ctx.fillRect(0, 0, larg, alt);
+
+    // Fundo: pedaços do mapa (sem internet, fica só o trajeto sobre fundo cinza).
+    let tilesOk = 0;
+    const tarefas = [];
+    for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + larg) / 256); tx++) {
+        for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + alt) / 256); ty++) {
+            tarefas.push(carregarImagem(TILE_URL(z, tx, ty), 8000).then(img => {
+                if (img) { ctx.drawImage(img, tx * 256 - x0, ty * 256 - y0); tilesOk++; }
+            }));
+        }
+    }
+    await Promise.all(tarefas);
+
+    const px = p => ({ x: lngParaPx(p.lng, z) - x0, y: latParaPx(p.lat, z) - y0 });
+    // Trechos
+    m.trechos.forEach(t => {
+        const a = acharPonto(m, t.de), b = acharPonto(m, t.para);
+        if (!a || !b) return;
+        const pa = px(a), pb = px(b);
+        ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+        const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2, txt = t.metragem + 'm';
+        ctx.font = 'bold 18px Roboto, Arial, sans-serif';
+        const w = ctx.measureText(txt).width + 10;
+        ctx.fillStyle = 'white'; ctx.fillRect(mx - w / 2, my - 12, w, 24);
+        ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 1.5; ctx.strokeRect(mx - w / 2, my - 12, w, 24);
+        ctx.fillStyle = '#c0392b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, mx, my + 1);
+    });
+    // Pontos numerados
+    m.pontos.forEach((p, i) => {
+        const q = px(p);
+        const cor = p.caixa ? ({ CTOP: '#660099', CEO: '#111111', Subida: '#d35400' }[p.caixa.tipo] || '#3498db') : '#3498db';
+        ctx.fillStyle = cor; ctx.strokeStyle = 'white'; ctx.lineWidth = 4;
+        ctx.beginPath();
+        if (p.caixa && p.caixa.tipo === 'CTOP') ctx.rect(q.x - 17, q.y - 17, 34, 34); else ctx.arc(q.x, q.y, 17, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'white'; ctx.font = 'bold 16px Roboto, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(i + 1), q.x, q.y + 1);
+    });
+    // Seta do norte e escala
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(larg - 70, 14, 56, 70);
+    ctx.fillStyle = '#2c3e50'; ctx.beginPath(); ctx.moveTo(larg - 42, 22); ctx.lineTo(larg - 54, 56); ctx.lineTo(larg - 30, 56); ctx.closePath(); ctx.fill();
+    ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center'; ctx.fillText('N', larg - 42, 72);
+    const metrosPorPx = 156543.03392 * Math.cos(m.pontos[0].lat * Math.PI / 180) / Math.pow(2, z);
+    const opcoes = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+    const metros = opcoes.find(v => v / metrosPorPx >= 80) || 5000;
+    const barra = metros / metrosPorPx;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(14, alt - 50, barra + 90, 36);
+    ctx.fillStyle = '#2c3e50'; ctx.fillRect(24, alt - 30, barra, 6);
+    ctx.font = 'bold 15px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(metros >= 1000 ? (metros / 1000) + ' km' : metros + ' m', 34 + barra, alt - 27);
+    ctx.font = '13px Arial'; ctx.textAlign = 'right'; ctx.fillStyle = '#333';
+    ctx.fillText('© OpenStreetMap', larg - 10, alt - 10);
+    return { dataUrl: tela.toDataURL('image/jpeg', 0.85), tilesOk };
+}
+
+function formatarHora(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function adicionarPaginasDoMapa(doc) {
+    const m = mapeamento;
+    const { dataUrl, tilesOk } = await imagemDoMapa(m, 1400, 860);
+    const end = m.endereco || {};
+    const local = [end.rua, end.bairro, end.cidade, end.uf].filter(Boolean).join(', ');
+
+    doc.addPage('a4', 'landscape');
+    doc.setFontSize(15); doc.setTextColor(102, 0, 153);
+    doc.text('Mapa do trajeto (GPS)', 10, 12);
+    doc.setFontSize(10); doc.setTextColor(60, 60, 60);
+    doc.text(`${local || 'Endereço não identificado'}  ·  ${m.pontos.length} pontos  ·  ${totalMapeado(m)}m mapeados` + (m.autor ? `  ·  Mapeado por: ${m.autor}` : ''), 10, 18);
+    doc.addImage(dataUrl, 'JPEG', 10, 22, 277, 170);
+    if (!tilesOk) { doc.setFontSize(9); doc.text('Mapa de fundo indisponível no momento da geração (sem internet). Pontos e trechos em escala real.', 10, 197); }
+
+    doc.addPage('a4', 'portrait');
+    doc.setFontSize(15); doc.setTextColor(102, 0, 153);
+    doc.text('Pontos marcados em campo', 14, 16);
+    const linhas = m.pontos.map((p, i) => [
+        String(i + 1),
+        p.caixa ? (p.caixa.tipo === 'CTOP' ? `CTOP ${p.caixa.num || ''} ${p.caixa.ctoTipo || ''}`.trim() : p.caixa.tipo === 'CEO' ? `CEO ${p.caixa.nova ? 'nova' : 'existente'}` : p.caixa.tipo) : (p.tipo || 'Poste').replace('Poste ', 'Poste '),
+        p.rua || '',
+        p.lat.toFixed(6), p.lng.toFixed(6),
+        p.origem === 'gps' ? `GPS ±${p.prec}m` : 'Mira (manual)',
+        formatarHora(p.hora),
+        'Abrir'
+    ]);
+    doc.autoTable({
+        startY: 22, head: [['Nº', 'Equipamento', 'Rua', 'Latitude', 'Longitude', 'Origem', 'Marcado em', 'Mapa']], body: linhas,
+        theme: 'striped', headStyles: { fillColor: [102, 0, 153] }, styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: { 0: { cellWidth: 8 }, 7: { textColor: [41, 128, 185] } },
+        didDrawCell: (d) => {
+            if (d.section === 'body' && d.column.index === 7 && doc.link) {
+                const p = m.pontos[d.row.index];
+                doc.link(d.cell.x, d.cell.y, d.cell.width, d.cell.height, { url: `https://www.google.com/maps?q=${p.lat.toFixed(6)},${p.lng.toFixed(6)}` });
+            }
+        }
+    });
+    const trechos = m.trechos.map(t => {
+        const na = m.pontos.findIndex(p => p.id === t.de) + 1, nb = m.pontos.findIndex(p => p.id === t.para) + 1;
+        return [`${na} → ${nb}`, `${t.distancia}m`, `${t.metragem}m`, t.editada ? 'Corrigida pelo técnico' : 'Sugerida (mapa + 5%)'];
+    });
+    doc.autoTable({
+        startY: (doc.lastAutoTable ? doc.lastAutoTable.finalY : 22) + 8, head: [['Trecho', 'Distância no mapa', 'Cabo lançado', 'Metragem']], body: trechos,
+        theme: 'striped', headStyles: { fillColor: [231, 76, 60] }, styles: { fontSize: 9, cellPadding: 2 }
+    });
+}
+
 // Para os testes automáticos (no navegador "module" não existe).
 if (typeof module !== 'undefined') {
     module.exports = { codificarMapeamento, decodificarMapeamento, projetarPontos, posicoesDasRuas, distanciaMetros, sugerirMetragem, novoMapeamento, adicionarPonto, removerPonto, recalcularTrechosDoPonto, totalMapeado, acharPonto };

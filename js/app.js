@@ -779,7 +779,7 @@ function confirmarSalvar() {
             
             if (totais.itensExtras.length > 0) { tableData.push(["---", "---"]); tableData.push(["CÓDIGOS / SERVIÇOS EXTRAS", "QUANTIDADE"]); totais.itensExtras.forEach(e => { tableData.push([e.item, e.qtd]); }); }
             doc.autoTable({ startY: 28, head: [['Informação / Serviço', 'Valor / Quantidade']], body: tableData, theme: 'striped', headStyles: { fillColor: [102, 0, 153] }, styles: { fontSize: 11, cellPadding: 4 }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 90 } } });
-            doc.save(`${idProj}.pdf`); alert("PDF gerado com sucesso! 🎉");
+            finalizarPDF(doc, idProj);
         } catch (erro) { console.error(erro); alert("Erro ao gerar PDF."); }
         
         // 5. Limpa a bagunça, explode o grupo e devolve o layout de celular ao normal
@@ -792,6 +792,20 @@ function confirmarSalvar() {
         mostrarGrade = true;
         canvas.setBackgroundColor('', canvas.renderAll.bind(canvas));
     }, 100);
+}
+
+// Se houver mapeamento com GPS, acrescenta as páginas do mapa e das
+// coordenadas (para fiscalização) antes de salvar o PDF.
+async function finalizarPDF(doc, idProj) {
+    try {
+        if (typeof adicionarPaginasDoMapa === 'function' && typeof mapeamento !== 'undefined' && mapeamento.pontos.length) {
+            updateStatus('Montando a página do mapa…');
+            await adicionarPaginasDoMapa(doc);
+        }
+    } catch (e) { console.warn('Página do mapa não incluída', e); }
+    doc.save(`${idProj}.pdf`);
+    updateStatus('PDF gerado.');
+    alert("PDF gerado com sucesso! 🎉");
 }
 
 // --- INJEÇÃO DINÂMICA DE MELHORIAS NO HTML E LISTAS DE SERVIÇOS ---
