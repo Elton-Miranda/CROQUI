@@ -24,7 +24,7 @@ const customProps = [
     'id_tipo', 'sub_tipo', 'valor_metragem', 'perPixelTargetFind', 'hasControls', 
     'selectable', 'lockScalingX', 'lockScalingY', 'lockRotation', 'snapAngle', 
     'snapThreshold', 'is_cto', 'cto_num', 'cto_contagem', 'materiais_gastos', 
-    'p1x', 'p1y', 'p2x', 'p2y'
+    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada'
 ];
 
 let historicoCanvas = [];
@@ -367,7 +367,14 @@ function intersectLines(p1, p2, p3, p4) {
     return { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
 }
 
+// Remove a retirada que o app desenhou num PDF anterior, para não acumular.
+function removerRetiradaAutomatica() {
+    canvas.getObjects().filter(o => o.auto_retirada || o.id_tipo === 'conector_retirada' || (o.id_tipo === 'cabo' && o.sub_tipo === 'retirado'))
+        .forEach(o => canvas.remove(o));
+}
+
 function gerarRetiradaAutomatica(cabosVermelhos) {
+    removerRetiradaAutomatica();
     let dist = 40; let greenSegments = []; let nodeMap = {};
 
     cabosVermelhos.forEach(c => {
@@ -397,7 +404,7 @@ function gerarRetiradaAutomatica(cabosVermelhos) {
         let line = new fabric.Line([seg.g1.x, seg.g1.y, seg.g2.x, seg.g2.y], { stroke: '#27ae60', strokeWidth: 5, selectable: true, hasControls: false });
         let midX = (seg.g1.x + seg.g2.x)/2; let midY = (seg.g1.y + seg.g2.y)/2;
         let text = new fabric.Text(seg.orig.valor_metragem + "m", { left: midX, top: midY, fontSize: 22, fill: '#27ae60', backgroundColor: 'rgba(255,255,255,1)', originX: 'center', originY: 'center', fontWeight: 'bold', padding: 6, paintFirst: 'stroke' });
-        let group = new fabric.Group([line, text], { selectable: true, lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'cabo', sub_tipo: 'retirado', valor_metragem: seg.orig.valor_metragem, perPixelTargetFind: true });
+        let group = new fabric.Group([line, text], { selectable: true, lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'cabo', sub_tipo: 'retirado', valor_metragem: seg.orig.valor_metragem, perPixelTargetFind: true, auto_retirada: true });
         canvas.add(group);
     });
 
@@ -407,7 +414,7 @@ function gerarRetiradaAutomatica(cabosVermelhos) {
             let c = connections[0]; let rx = parseFloat(key.split('_')[0]); let ry = parseFloat(key.split('_')[1]); let gx = c.seg[c.pointKey].x; let gy = c.seg[c.pointKey].y;
             let connLine = new fabric.Line([rx, ry, gx, gy], { stroke: '#27ae60', strokeWidth: 5, selectable: false, id_tipo: 'conector_retirada' });
             let connText = new fabric.Text("0m", { left: (rx+gx)/2, top: (ry+gy)/2, fontSize: 16, fill: '#f39c12', backgroundColor: 'rgba(255,255,255,0.9)', originX: 'center', originY: 'center', fontWeight: 'bold', padding: 3 });
-            let connGroup = new fabric.Group([connLine, connText], { selectable: false, lockMovementX: true, lockMovementY: true, id_tipo: 'conector_retirada' });
+            let connGroup = new fabric.Group([connLine, connText], { selectable: false, lockMovementX: true, lockMovementY: true, id_tipo: 'conector_retirada', auto_retirada: true });
             canvas.add(connGroup);
         }
     });
@@ -657,6 +664,8 @@ function confirmarSalvar() {
     let idProj = `OC_${oc}_CABO_${cabo}`; let hoje = new Date().toLocaleDateString('pt-BR'); fecharModais();
 
     let cabosInstalados = canvas.getObjects().filter(o => o.id_tipo === 'cabo' && o.sub_tipo === 'instalado');
+    // Sempre parte do zero: se o PDF for gerado de novo, a retirada antiga sai e só volta se confirmar de novo.
+    removerRetiradaAutomatica();
     if (cabosInstalados.length > 0) { if (confirm("📦 Houve RETIRADA DE CABO nesta OS?\n\nClique em [OK] para que o sistema crie a linha Verde de retirada automaticamente.")) { gerarRetiradaAutomatica(cabosInstalados); } }
 
     // MÁGICA: Executar tudo num bloco síncrono ultra-rápido para o celular não cortar a tela
