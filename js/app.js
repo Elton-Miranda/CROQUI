@@ -41,7 +41,7 @@ const customProps = [
     'id_tipo', 'sub_tipo', 'valor_metragem', 'perPixelTargetFind', 'hasControls', 
     'selectable', 'lockScalingX', 'lockScalingY', 'lockRotation', 'snapAngle', 
     'snapThreshold', 'is_cto', 'cto_num', 'cto_contagem', 'materiais_gastos', 
-    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada', 'cto_tipo', 'ceo_nova', 'ponto_mapa', 'ponto_numero', 'rua_mapa'
+    'p1x', 'p1y', 'p2x', 'p2y', 'auto_retirada', 'cto_tipo', 'ceo_nova', 'ponto_mapa', 'ponto_numero', 'rua_mapa', 'itens_ponto', 'retirada_mapa', 'nota_ponto'
 ];
 
 let historicoCanvas = [];
@@ -719,6 +719,7 @@ function confirmarSalvar() {
     setTimeout(() => {
         let totais = { redeInstalada: 0, redeRetirada: 0, itensExtras: [] }; listaMateriaisManuais.forEach(m => { totais.itensExtras.push({ qtd: m.qtd, item: m.item }); });
         let ctosExtraidas = []; let ruasExtraidas = [];
+        let itensDosPostes = {}; // item -> quantidade somada de todos os postes (vem do mapeamento)
 
         canvas.getObjects().forEach(o => { 
             if (o.id_tipo === 'cabo' && o.valor_metragem) { if (o.sub_tipo === 'instalado') totais.redeInstalada += o.valor_metragem; if (o.sub_tipo === 'retirado') totais.redeRetirada += o.valor_metragem; }
@@ -728,7 +729,13 @@ function confirmarSalvar() {
                 let nomeCaixa = o.is_cto ? `CTO ${o.cto_num}` : (o.id_tipo === 'equipamento_cabo' ? "CEO" : (o.ponto_mapa ? `Poste ${o.ponto_numero || ''}`.trim() : "Poste"));
                 totais.itensExtras.push({ item: `Material Local (${nomeCaixa})`, qtd: o.materiais_gastos });
             }
+            if (Array.isArray(o.itens_ponto)) o.itens_ponto.forEach(i => {
+                let q = Number(i.qtd) || 0;
+                if (!(i.item in itensDosPostes)) itensDosPostes[i.item] = 0;
+                itensDosPostes[i.item] += q;
+            });
         });
+        Object.keys(itensDosPostes).forEach(item => totais.itensExtras.push({ item: item, qtd: itensDosPostes[item] || '-' }));
 
         let strEndereco = ruasExtraidas.length > 0 ? ruasExtraidas.join(" / ") : "S/I"; let strCaixas = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.num).join(", ") : "S/I"; let strDist = ctosExtraidas.length > 0 ? ctosExtraidas.map(c => c.cont).join(", ") : "S/I";
 

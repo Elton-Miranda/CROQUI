@@ -12,6 +12,10 @@
 // --- CONFIGURAÇÕES (fácil de ajustar) ---
 const TIPOS_CTOP = ['Pré-conectorizada', 'CTOP 8 portas', 'Com fusão'];
 const TIPOS_POSTE = ['Poste XC', 'Poste XM'];
+// Cores da CTOP (mesmas do croqui manual). [nome, cor no desenho]
+const CORES_CTOP = [['Preta', 'black'], ['Amarela', '#f1c40f'], ['Verde', '#27ae60'], ['Branca', '#ffffff'], ['Azul', '#2980b9'], ['Vermelha', '#e74c3c'], ['Violeta', '#8e44ad']];
+// Itens que aparecem primeiro no painel. Os demais vêm da lista de serviços do app.
+const ITENS_FREQUENTES = ['Conector óptico', '294071 - MONTAGEM CONECTOR', '290689 - Emenda de FO', '290832 - Emenda de FO em caixa de emenda existente', '294004 - PONTEAMENTO', '294098 - SPIRAL TUBE'];
 const FOLGA_FLECHA = 0.05;        // +5% sobre a distância do mapa (flecha do cabo)
 const PRECISAO_ACEITAVEL = 25;    // metros. Acima disso o app avisa que o GPS está ruim
 const CHAVE_MAPEAMENTO = 'croqui_mapeamento_v1';
@@ -33,14 +37,14 @@ function sugerirMetragem(distancia) {
 }
 
 function novoMapeamento() {
-    return { versao: 1, criadoEm: new Date().toISOString(), autor: '', pontos: [], trechos: [], ativo: null, proximoId: 1 };
+    return { versao: 1, criadoEm: new Date().toISOString(), autor: '', pontos: [], trechos: [], retiradas: [], ativo: null, proximoId: 1 };
 }
 
 function acharPonto(m, id) { return m.pontos.find(p => p.id === id) || null; }
 
 // Adiciona um ponto e, se houver um ponto ativo, liga os dois com um trecho.
 function adicionarPonto(m, dados) {
-    const p = Object.assign({ id: m.proximoId++, tipo: 'Poste XC', caixa: null, material: '', rua: '' }, dados);
+    const p = Object.assign({ id: m.proximoId++, tipo: 'Poste XC', caixa: null, itens: [], rua: '' }, dados);
     m.pontos.push(p);
     const anterior = acharPonto(m, m.ativo);
     if (anterior) {
@@ -91,7 +95,7 @@ const gps = { watchId: null, leituras: [], ultima: null, seguindo: true, erro: '
 function carregarMapeamento() {
     try {
         const m = JSON.parse(localStorage.getItem(CHAVE_MAPEAMENTO) || 'null');
-        if (m && Array.isArray(m.pontos)) return m;
+        if (m && Array.isArray(m.pontos)) { migrarMapeamento(m); return m; }
     } catch (e) {}
     return novoMapeamento();
 }
@@ -295,20 +299,107 @@ function marcarCaixa(tipo, idPonto) {
     if (document.getElementById('painelPonto').classList.contains('aberto')) abrirPainelPonto(p.id);
 }
 
-function marcarMaterialPonto(idPonto) {
+// Mapeamentos antigos tinham "material" em texto livre: vira um item.
+function migrarMapeamento(m) {
+    (m.pontos || []).forEach(p => {
+        if (!Array.isArray(p.itens)) p.itens = [];
+        if (p.material) { p.itens.push({ item: p.material, qtd: '' }); delete p.material; }
+    });
+    if (!Array.isArray(m.retiradas)) m.retiradas = [];
+    return m;
+}
+
+function nomeItem(v) { return String(v).replace(/^\d+ - /, ''); }
+
+// Texto curto da caixa de um ponto (usado no painel, no croqui e no PDF).
+function descreverCaixa(c) {
+    if (!c) return '';
+    if (c.tipo === 'CTOP') return ['CTOP', c.num, c.corNome && c.corNome !== 'Preta' ? c.corNome.toLowerCase() : ''].filter(Boolean).join(' ');
+    if (c.tipo === 'CEO') return c.nova ? 'CEO nova' : 'CEO existente';
+    return c.tipo;
+}
+
+// --- Itens usados num poste ---
+let itemPonto = null, itemEscolhido = '';
+
+function catalogoDeItens() {
+    const sel = document.getElementById('selectMaterialBase');
+    const daLista = sel ? Array.from(sel.options).map(o => o.value).filter(v => v && v !== 'Outro') : [];
+    return ITENS_FREQUENTES.concat(daLista.filter(v => !ITENS_FREQUENTES.includes(v)));
+}
+
+function abrirPainelItem(idPonto) {
     const p = idPonto ? acharPonto(mapeamento, idPonto) : pontoAtivoOuAviso();
     if (!p) return;
-    const txt = prompt('📦 Material gasto neste ponto (ex: 2 conectores, 1 alça):', p.material || '');
-    if (txt === null) return;
-    p.material = txt.trim();
+    itemPonto = p.id; itemEscolhido = '';
+    document.getElementById('itemTitulo').innerText = `Item no ponto ${mapeamento.pontos.indexOf(p) + 1}`;
+    const freq = document.getElementById('itemFrequentes'); freq.innerHTML = '';
+    ITENS_FREQUENTES.forEach(v => {
+        const b = document.createElement('button'); b.type = 'button'; b.innerText = nomeItem(v);
+        b.onclick = () => escolherItem(v);
+        freq.appendChild(b);
+    });
+    const sel = document.getElementById('itemCatalogo');
+    sel.innerHTML = '<option value="">Lista completa…</option>' + catalogoDeItens().map(v => `<option value="${v.replace(/"/g, '&quot;')}">${nomeItem(v)}</option>`).join('') + '<option value="Outro">Outro (escrever)</option>';
+    sel.onchange = () => escolherItem(sel.value, true);
+    document.getElementById('itemOutro').style.display = 'none'; document.getElementById('itemOutro').value = '';
+    document.getElementById('itemQtd').value = '1';
+    document.getElementById('itemErro').innerText = '';
+    abrirPainel('painelItem');
+}
+
+function escolherItem(v, daLista) {
+    itemEscolhido = v;
+    document.querySelectorAll('#itemFrequentes button').forEach(b => b.classList.toggle('sel', b.innerText === nomeItem(v)));
+    if (!daLista) document.getElementById('itemCatalogo').value = '';
+    const outro = document.getElementById('itemOutro');
+    outro.style.display = v === 'Outro' ? 'block' : 'none';
+    if (v === 'Outro') outro.focus();
+    document.getElementById('itemErro').innerText = '';
+}
+
+function mudarQtdItem(delta) {
+    const campo = document.getElementById('itemQtd');
+    const atual = parseInt(campo.value, 10) || 0;
+    campo.value = String(Math.max(1, atual + delta));
+}
+
+function confirmarItem() {
+    const p = acharPonto(mapeamento, itemPonto);
+    if (!p) { fecharPainel('painelItem'); return; }
+    let item = itemEscolhido === 'Outro' ? document.getElementById('itemOutro').value.trim() : itemEscolhido;
+    const qtd = parseInt(document.getElementById('itemQtd').value, 10);
+    if (!item) { document.getElementById('itemErro').innerText = 'Escolha um item.'; return; }
+    if (!qtd || qtd < 1) { document.getElementById('itemErro').innerText = 'Informe a quantidade.'; return; }
+    const igual = p.itens.find(i => i.item === item);
+    if (igual) igual.qtd = (Number(igual.qtd) || 0) + qtd; else p.itens.push({ item, qtd });
+    fecharPainel('painelItem'); vibrar(40);
     salvarMapeamento(); desenharMapeamento();
+    if (document.getElementById('painelPonto').classList.contains('aberto')) abrirPainelPonto(p.id);
+    else avisoMapa(`${qtd}× ${nomeItem(item)} no ponto ${mapeamento.pontos.indexOf(p) + 1}`);
+}
+
+function removerItem(idPonto, indice) {
+    const p = acharPonto(mapeamento, idPonto);
+    if (!p) return;
+    p.itens.splice(indice, 1);
+    salvarMapeamento(); desenharMapeamento(); abrirPainelPonto(idPonto);
 }
 
 // --- Painel da CTOP ---
-let tipoCtopEscolhido = '';
+let tipoCtopEscolhido = '', corCtopEscolhida = 'Preta';
 function abrirPainelCtop(p) {
     const atual = p.caixa && p.caixa.tipo === 'CTOP' ? p.caixa : {};
     tipoCtopEscolhido = atual.ctoTipo || '';
+    corCtopEscolhida = atual.corNome || 'Preta';
+    const cores = document.getElementById('ctopCores'); cores.innerHTML = '';
+    CORES_CTOP.forEach(([nome, cor]) => {
+        const b = document.createElement('button'); b.type = 'button'; b.innerText = nome;
+        b.style.background = cor; b.style.color = (cor === '#ffffff' || cor === '#f1c40f') ? '#222' : '#fff';
+        if (nome === corCtopEscolhida) b.classList.add('sel');
+        b.onclick = () => { corCtopEscolhida = nome; cores.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b)); };
+        cores.appendChild(b);
+    });
     const box = document.getElementById('ctopTipos'); box.innerHTML = '';
     TIPOS_CTOP.forEach(t => {
         const b = document.createElement('button'); b.type = 'button'; b.innerText = t;
@@ -328,6 +419,7 @@ function confirmarCtop() {
     if (!tipoCtopEscolhido) { document.getElementById('ctopErro').innerText = 'Escolha o tipo da CTOP.'; return; }
     p.caixa = {
         tipo: 'CTOP', ctoTipo: tipoCtopEscolhido,
+        corNome: corCtopEscolhida, cor: (CORES_CTOP.find(c => c[0] === corCtopEscolhida) || CORES_CTOP[0])[1],
         num: document.getElementById('ctopNum').value.trim(),
         contagem: document.getElementById('ctopContagem').value
     };
@@ -345,7 +437,16 @@ function abrirPainelPonto(id) {
     document.getElementById('pontoTitulo').innerText = `Ponto ${n}` + (p.rua ? ' · ' + p.rua : '');
     const hora = p.hora ? new Date(p.hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
     const origem = p.origem === 'gps' ? `GPS ±${p.prec}m` : 'marcado pela mira';
-    document.getElementById('pontoSub').innerText = `${origem} · ${hora}` + (p.material ? ' · Material: ' + p.material : '');
+    document.getElementById('pontoSub').innerText = `${origem} · ${hora}`;
+    const lista = document.getElementById('pontoItens'); lista.innerHTML = '';
+    if (!p.itens.length) lista.innerHTML = '<div class="vazio">Nenhum item ainda.</div>';
+    p.itens.forEach((it, i) => {
+        const linha = document.createElement('div'); linha.className = 'item-linha';
+        linha.innerHTML = `<b>${it.qtd ? it.qtd + '×' : '•'}</b><span></span><button type="button" aria-label="Remover item">✕</button>`;
+        linha.querySelector('span').innerText = nomeItem(it.item);
+        linha.querySelector('button').onclick = () => removerItem(id, i);
+        lista.appendChild(linha);
+    });
 
     const tipos = document.getElementById('pontoTipos'); tipos.innerHTML = '';
     TIPOS_POSTE.forEach(t => {
@@ -358,7 +459,7 @@ function abrirPainelPonto(id) {
     const atual = p.caixa ? p.caixa.tipo : '';
     [['', 'Sem caixa'], ['CTOP', 'CTOP'], ['CEO', 'CEO'], ['Subida', 'Subida']].forEach(([valor, rotulo]) => {
         const b = document.createElement('button'); b.type = 'button';
-        b.innerText = valor === 'CTOP' && atual === 'CTOP' ? `CTOP ${p.caixa.num || ''}`.trim() : rotulo;
+        b.innerText = valor && atual === valor ? descreverCaixa(p.caixa) : rotulo;
         if (atual === valor) b.classList.add('sel');
         b.onclick = () => marcarCaixa(valor || 'nenhuma', id);
         caixas.appendChild(b);
@@ -461,12 +562,17 @@ function fecharPainel(id) { document.getElementById(id).classList.remove('aberto
 // ==========================================
 function iconePonto(p, numero) {
     let classe = 'pm', texto = String(numero);
-    if (p.caixa && p.caixa.tipo === 'CTOP') { classe += ' ctop'; texto = 'C' + numero; }
+    let estilo = '';
+    if (p.caixa && p.caixa.tipo === 'CTOP') {
+        classe += ' ctop'; texto = 'C' + numero;
+        if (p.caixa.cor && p.caixa.cor !== 'black') estilo = `background:${p.caixa.cor};color:${p.caixa.cor === '#ffffff' || p.caixa.cor === '#f1c40f' ? '#222' : '#fff'}`;
+    }
     else if (p.caixa && p.caixa.tipo === 'CEO') { classe += ' ceo'; texto = 'E' + numero; }
     else if (p.caixa && p.caixa.tipo === 'Subida') { classe += ' subida'; texto = 'S' + numero; }
     if (p.id === mapeamento.ativo) classe += ' ativo';
     if (p.origem === 'gps' && p.prec > PRECISAO_ACEITAVEL) classe += ' impreciso';
-    return L.divIcon({ className: '', html: `<div class="${classe}">${texto}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+    const selo = p.itens && p.itens.length ? `<span class="pm-itens">${p.itens.length}</span>` : '';
+    return L.divIcon({ className: '', html: `<div class="${classe}" style="${estilo}">${texto}${selo}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
 }
 
 function desenharMapeamento() {
@@ -681,12 +787,12 @@ function gerarCroquiDoMapa() {
     mapeamento.pontos.forEach((p, i) => {
         const q = pos[p.id];
         let g;
-        if (p.caixa && p.caixa.tipo === 'CTOP') g = montarCTO(q.x, q.y, p.caixa.num || 'S/N', p.caixa.contagem || '', 'black', p.caixa.ctoTipo);
+        if (p.caixa && p.caixa.tipo === 'CTOP') g = montarCTO(q.x, q.y, p.caixa.num || 'S/N', p.caixa.contagem || '', p.caixa.cor || 'black', p.caixa.ctoTipo);
         else if (p.caixa && p.caixa.tipo === 'CEO') g = montarCEO(q.x, q.y, p.caixa.nova);
         else if (p.caixa && p.caixa.tipo === 'Subida') g = montarSubida(q.x, q.y);
         else g = montarPoste(q.x, q.y, p.tipo);
         g.set({ ponto_mapa: p.id, ponto_numero: i + 1 });
-        if (p.material) g.set('materiais_gastos', p.material);
+        if (p.itens && p.itens.length) g.set('itens_ponto', p.itens.map(i => ({ item: i.item, qtd: i.qtd })));
         canvas.add(g);
     });
 
@@ -733,7 +839,7 @@ function enxugarMapeamento(m) {
     const r6 = v => Math.round(v * 1e6) / 1e6;
     return {
         v: 1, criadoEm: m.criadoEm, autor: m.autor || '', oc: m.oc || '', endereco: m.endereco || null,
-        pontos: m.pontos.map(p => ({ id: p.id, lat: r6(p.lat), lng: r6(p.lng), prec: p.prec, origem: p.origem, hora: p.hora, rua: p.rua || '', tipo: p.tipo, caixa: p.caixa || null, material: p.material || '', cidade: p.cidade || '' })),
+        pontos: m.pontos.map(p => ({ id: p.id, lat: r6(p.lat), lng: r6(p.lng), prec: p.prec, origem: p.origem, hora: p.hora, rua: p.rua || '', tipo: p.tipo, caixa: p.caixa || null, itens: p.itens || [], cidade: p.cidade || '' })),
         trechos: m.trechos.map(t => ({ de: t.de, para: t.para, distancia: t.distancia, metragem: t.metragem, editada: !!t.editada, tipo: t.tipo || 'instalado' }))
     };
 }
@@ -750,7 +856,8 @@ async function decodificarMapeamento(codigo) {
     const d = JSON.parse(new TextDecoder().decode(bytes));
     if (!d || !Array.isArray(d.pontos) || !Array.isArray(d.trechos)) throw new Error('Mapeamento inválido');
     const m = novoMapeamento();
-    Object.assign(m, { criadoEm: d.criadoEm || m.criadoEm, autor: d.autor || '', oc: d.oc || '', endereco: d.endereco || null, pontos: d.pontos, trechos: d.trechos });
+    Object.assign(m, { criadoEm: d.criadoEm || m.criadoEm, autor: d.autor || '', oc: d.oc || '', endereco: d.endereco || null, pontos: d.pontos, trechos: d.trechos, retiradas: d.retiradas || [] });
+    migrarMapeamento(m);
     m.proximoId = m.pontos.reduce((mx, p) => Math.max(mx, p.id), 0) + 1;
     m.ativo = m.pontos.length ? m.pontos[m.pontos.length - 1].id : null;
     m.recebido = true;
@@ -930,7 +1037,8 @@ async function adicionarPaginasDoMapa(doc) {
     doc.text('Pontos marcados em campo', 14, 16);
     const linhas = m.pontos.map((p, i) => [
         String(i + 1),
-        p.caixa ? (p.caixa.tipo === 'CTOP' ? `CTOP ${p.caixa.num || ''} ${p.caixa.ctoTipo || ''}`.trim() : p.caixa.tipo === 'CEO' ? `CEO ${p.caixa.nova ? 'nova' : 'existente'}` : p.caixa.tipo) : (p.tipo || 'Poste').replace('Poste ', 'Poste '),
+        [p.caixa ? (p.caixa.tipo === 'CTOP' ? `${descreverCaixa(p.caixa)} ${p.caixa.contagem || ''} ${p.caixa.ctoTipo || ''}`.replace(/\s+/g, ' ').trim() : descreverCaixa(p.caixa)) : (p.tipo || 'Poste')]
+            .concat((p.itens || []).map(i => `${i.qtd ? i.qtd + '× ' : ''}${nomeItem(i.item)}`)).join('\n'),
         p.rua || '',
         p.lat.toFixed(6), p.lng.toFixed(6),
         p.origem === 'gps' ? `GPS ±${p.prec}m` : 'Mira (manual)',
