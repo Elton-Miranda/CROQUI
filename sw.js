@@ -7,13 +7,16 @@
 // porque elas nunca mudam de versão.
 //
 // Ao publicar uma mudança grande, aumente o número da versão abaixo.
-const VERSAO = 'croqui-v2.0.0';
+const VERSAO = 'croqui-v2.1.0';
+const CACHE_MAPA = 'croqui-tiles';   // pedaços do mapa já vistos (mantido entre versões)
+const LIMITE_TILES = 600;            // ~10 MB
 
 const ARQUIVOS_DO_APP = [
     './',
     './index.html',
     './css/style.css',
     './js/app.js',
+    './js/mapa.js',
     './manifest.json',
     './icones/icone-192.png',
     './icones/icone-512.png'
@@ -23,6 +26,8 @@ const BIBLIOTECAS = [
     'https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js',
+    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
     'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap'
 ];
 
@@ -44,7 +49,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         const nomes = await caches.keys();
-        await Promise.all(nomes.filter(n => n.startsWith('croqui-') && n !== VERSAO).map(n => caches.delete(n)));
+        await Promise.all(nomes.filter(n => n.startsWith('croqui-') && n !== VERSAO && n !== CACHE_MAPA).map(n => caches.delete(n)));
         await self.clients.claim();
     })());
 });
@@ -69,6 +74,27 @@ self.addEventListener('fetch', (event) => {
                 if (req.mode === 'navigate') return cache.match('./index.html');
                 throw e;
             }
+        })());
+        return;
+    }
+
+    // Busca de endereço: sempre na internet (nunca guarda).
+    if (url.hostname.includes('nominatim')) return;
+
+    // Pedaços do mapa: guarda os que o técnico já viu, para abrir sem sinal
+    // na mesma região. Os mais antigos saem quando passar do limite.
+    if (url.hostname.endsWith('tile.openstreetmap.org')) {
+        event.respondWith((async () => {
+            const cache = await caches.open(CACHE_MAPA);
+            const guardado = await cache.match(req);
+            if (guardado) return guardado;
+            const resp = await fetch(req);
+            if (resp && resp.ok) {
+                await cache.put(req, resp.clone());
+                const chaves = await cache.keys();
+                if (chaves.length > LIMITE_TILES) await Promise.all(chaves.slice(0, chaves.length - LIMITE_TILES).map(k => cache.delete(k)));
+            }
+            return resp;
         })());
         return;
     }

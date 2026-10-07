@@ -3,6 +3,15 @@
 // Pontos de Grade Preservados e UI Blindada
 // ==========================================
 
+// Primeira vez abrindo o app sem internet: a biblioteca de desenho ainda
+// não foi baixada. Explica em vez de deixar a tela parada.
+if (typeof fabric === 'undefined') {
+    let aviso = document.getElementById('status-bar');
+    if (aviso) aviso.innerText = 'Sem internet: abra o app uma vez com sinal para ele funcionar offline.';
+    alert('O Croqui precisa de internet na PRIMEIRA vez que é aberto neste celular.\n\nConecte no Wi-Fi ou nos dados móveis e abra de novo. Depois disso ele funciona sem internet.');
+    throw new Error('fabric.js não carregado (primeiro acesso sem internet)');
+}
+
 const canvas = new fabric.Canvas('c', { selection: false, preserveObjectStacking: true });
 let isConnectingMode = false;
 let modoCaboAtivo = null;
@@ -655,7 +664,7 @@ function renderListaMateriais() {
 function removerMaterialManual(i) { listaMateriaisManuais.splice(i, 1); renderListaMateriais(); agendarAutoSalvar(); }
 
 // --- TUTORIAL INTERATIVO ---
-let slideAtual = 0; const totalSlides = 4;
+let slideAtual = 0; const totalSlides = 5;
 function abrirTutorial() { slideAtual = 0; atualizarVisorTutorial(); document.getElementById('modalTutorial').style.display = 'flex'; }
 function fecharTutorial() { document.getElementById('modalTutorial').style.display = 'none'; localStorage.setItem('croqui_tutorial_visto', 'true'); }
 function mudarSlide(direcao) { slideAtual += direcao; if (slideAtual < 0) slideAtual = 0; if (slideAtual >= totalSlides) slideAtual = totalSlides - 1; atualizarVisorTutorial(); }
