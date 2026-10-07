@@ -51,7 +51,7 @@ function desfazer() {
         navegandoHistorico = true; indiceHistorico--;
         let vptAtual = canvas.viewportTransform.slice(); 
         canvas.loadFromJSON(historicoCanvas[indiceHistorico], function() {
-            canvas.setViewportTransform(vptAtual); canvas.renderAll(); navegandoHistorico = false; atualizarBotoesHistorico(); fecharPieMenu();
+            canvas.setViewportTransform(vptAtual); marcadorInicio = null; startNode = null; canvas.renderAll(); navegandoHistorico = false; atualizarBotoesHistorico(); fecharPieMenu();
         });
     }
 }
@@ -61,15 +61,24 @@ function refazer() {
         navegandoHistorico = true; indiceHistorico++;
         let vptAtual = canvas.viewportTransform.slice();
         canvas.loadFromJSON(historicoCanvas[indiceHistorico], function() {
-            canvas.setViewportTransform(vptAtual); canvas.renderAll(); navegandoHistorico = false; atualizarBotoesHistorico(); fecharPieMenu();
+            canvas.setViewportTransform(vptAtual); marcadorInicio = null; startNode = null; canvas.renderAll(); navegandoHistorico = false; atualizarBotoesHistorico(); fecharPieMenu();
         });
     }
 }
 
 canvas.on('object:modified', function() { salvarEstado(); });
 
-// --- ÁREA DE DESENHO E TOQUE MOBILE BLINDADO ---
-let touchStartX = 0; let touchStartY = 0; let isActuallyDragging = false;
+// --- ÁREA DE DESENHO E TOQUE MOBILE ---
+// Regras do toque:
+//  - Arrastar 1 dedo (em qualquer lugar, inclusive no modo cabo) move a tela.
+//  - Pinça com 2 dedos dá zoom e NUNCA conta como toque.
+//  - Toque rápido no vazio "encaixa" no ponto da grade mais próximo.
+let toqueInicio = { x: 0, y: 0 };
+let ultimoPonto = { x: 0, y: 0 };
+let arrastandoTela = false;
+let podeArrastar = false;
+let gestoComPinca = false;
+const LIMITE_ARRASTO = 10; // px que o dedo precisa andar para virar arrasto
 
 // Ajusta só o tamanho do canvas. Roda de novo ao girar a tela ou abrir o teclado.
 function ajustarTamanhoCanvas() {
@@ -79,101 +88,149 @@ function ajustarTamanhoCanvas() {
     canvas.requestRenderAll();
 }
 
-// Registra os eventos de toque UMA única vez.
-// (Antes isso rodava a cada "resize" e cada toque passava a valer 2, 3, 4 vezes.)
+function pegarXY(evt) {
+    let t = (evt.touches && evt.touches[0]) || (evt.changedTouches && evt.changedTouches[0]) || evt;
+    return { x: t.clientX, y: t.clientY };
+}
+
+function pieMenuAberto() {
+    let pie = document.getElementById('pie-menu');
+    return pie && !pie.classList.contains('hidden');
+}
+
 function initCanvasArea() {
     ajustarTamanhoCanvas();
 
     canvas.on('mouse:down', function(opt) {
-        if (ignoreNextTouch) return;
-        let evt = opt.e;
-        if (evt.touches && evt.touches.length > 1) return; 
-        touchStartX = evt.clientX || (evt.touches && evt.touches[0].clientX);
-        touchStartY = evt.clientY || (evt.touches && evt.touches[0].clientY);
-        isActuallyDragging = false;
-
-        if (!isConnectingMode && !opt.target) {
-            this.isDragging = true; 
-            this.lastPosX = touchStartX; 
-            this.lastPosY = touchStartY; 
-        }
+        if (gestoComPinca) return;
+        toqueInicio = pegarXY(opt.e);
+        ultimoPonto = toqueInicio;
+        arrastandoTela = false;
+        // Nome de rua pode ser arrastado; em qualquer outro lugar o dedo move a tela.
+        podeArrastar = !(opt.target && opt.target.id_tipo === 'rua_livre');
     });
-    
+
     canvas.on('mouse:move', function(opt) {
-        let evt = opt.e;
-        if (evt.touches && evt.touches.length > 1) return;
-        let clientX = evt.clientX || (evt.touches && evt.touches[0].clientX);
-        let clientY = evt.clientY || (evt.touches && evt.touches[0].clientY);
-
-        if (Math.hypot(clientX - touchStartX, clientY - touchStartY) > 10) { isActuallyDragging = true; }
-
-        if (this.isDragging) {
+        if (!podeArrastar || gestoComPinca) return;
+        let p = pegarXY(opt.e);
+        if (!arrastandoTela && Math.hypot(p.x - toqueInicio.x, p.y - toqueInicio.y) > LIMITE_ARRASTO) { arrastandoTela = true; }
+        if (arrastandoTela) {
             let vpt = this.viewportTransform;
-            vpt[4] += clientX - this.lastPosX; vpt[5] += clientY - this.lastPosY;
-            this.requestRenderAll(); this.lastPosX = clientX; this.lastPosY = clientY;
+            vpt[4] += p.x - ultimoPonto.x; vpt[5] += p.y - ultimoPonto.y;
+            this.requestRenderAll();
         }
+        ultimoPonto = p;
     });
-    
+
     canvas.on('mouse:up', function(opt) {
-        if (ignoreNextTouch) return; 
-        this.setViewportTransform(this.viewportTransform);
-        this.isDragging = false; 
-        
-        if (isActuallyDragging) return; 
+        let foiArrasto = arrastandoTela;
+        arrastandoTela = false; podeArrastar = false;
+        if (foiArrasto) { this.setViewportTransform(this.viewportTransform); return; }
+        if (gestoComPinca || ignoreNextTouch) return;
 
-        const obj = opt.target; let evt = opt.e;
-        
-        if (!obj) { fecharPieMenu(); return; }
-        if (obj.id_tipo === 'rua_livre' || obj.id_tipo === 'simbologia_poste') { fecharPieMenu(); return; }
-
-        let pointer = canvas.getPointer(evt);
+        const obj = opt.target;
+        let pointer = canvas.getPointer(opt.e);
+        let ehEquipamento = obj && obj.id_tipo && obj.id_tipo.startsWith('equipamento');
 
         if (isConnectingMode) {
-            if (['grid_dot', 'equipamento_poste', 'equipamento_cabo'].includes(obj.id_tipo)) { handleConnectionClick(obj); }
-        } else {
-            if (['cabo', 'grid_dot', 'equipamento_poste', 'equipamento_cabo'].includes(obj.id_tipo)) {
-                activeTarget = obj; clickCoords = { x: pointer.x, y: pointer.y }; abrirPieMenu(evt, obj.id_tipo);
-            }
+            handleConnectionClick(ehEquipamento ? obj : pontoDaGradeComoNo(pointer));
+            return;
         }
+
+        if (obj && obj.id_tipo === 'cabo') {
+            activeTarget = obj; clickCoords = { x: pointer.x, y: pointer.y }; abrirPieMenu(opt.e, 'cabo'); return;
+        }
+        if (ehEquipamento) {
+            activeTarget = obj; clickCoords = { x: obj.left, y: obj.top }; abrirPieMenu(opt.e, obj.id_tipo); return;
+        }
+        if (obj && ['rua_livre', 'simbologia_poste', 'conector_retirada'].includes(obj.id_tipo)) { fecharPieMenu(); return; }
+
+        // Toque no vazio: se o menu estava aberto, só fecha. Senão abre no ponto mais próximo.
+        if (pieMenuAberto()) { fecharPieMenu(); return; }
+        activeTarget = pontoDaGradeComoNo(pointer);
+        clickCoords = { x: activeTarget.left, y: activeTarget.top };
+        abrirPieMenu(opt.e, 'grid_dot');
     });
 
+    // Pinça (2 dedos). Escuta na fase de captura para saber ANTES do canvas que é pinça.
     let touchContainer = document.getElementById('canvas-container'); let lastPinchDist = 0;
     touchContainer.addEventListener('touchstart', function(e) {
-        if (e.touches.length === 2) { canvas.isDragging = false; lastPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
-    }, { passive: false });
+        if (e.touches.length === 1) { gestoComPinca = false; }
+        if (e.touches.length === 2) {
+            gestoComPinca = true; arrastandoTela = false;
+            lastPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        }
+    }, { passive: false, capture: true });
 
     touchContainer.addEventListener('touchmove', function(e) {
         if (e.touches.length === 2) {
-            e.preventDefault(); 
+            e.preventDefault();
             let currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+            if (!lastPinchDist) { lastPinchDist = currentDist; return; }
             let zoom = canvas.getZoom() * (currentDist / lastPinchDist);
-            if (zoom > 4) zoom = 4; if (zoom < 0.5) zoom = 0.5;
-            let point = new fabric.Point((e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2);
+            if (zoom > 4) zoom = 4; if (zoom < 0.4) zoom = 0.4;
+            let rect = canvas.upperCanvasEl.getBoundingClientRect();
+            let point = new fabric.Point((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left, (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top);
             canvas.zoomToPoint(point, zoom); lastPinchDist = currentDist; zoomLevel = zoom;
         }
     }, { passive: false });
+
+    touchContainer.addEventListener('touchend', function(e) {
+        if (e.touches.length < 2) { lastPinchDist = 0; }
+    }, { capture: true });
 }
 initCanvasArea(); window.addEventListener('resize', ajustarTamanhoCanvas);
 
-// --- GRID E SETUP INICIAL ---
-function initGrid() {
-    const cols = 60, rows = 60, spacing = 60, offsetX = 40, offsetY = 40; 
-    for (let i = 0; i < cols; i++) {
-        for (let j = 0; j < rows; j++) {
-            let dot = new fabric.Circle({ left: offsetX + (spacing * (i + 1)), top: offsetY + (spacing * (j + 1)), radius: 4, fill: '#bdc3c7', stroke: 'rgba(0,0,0,0)', strokeWidth: 32, hasControls: false, hasBorders: false, selectable: false, originX: 'center', originY: 'center', id_tipo: 'grid_dot' });
-            canvas.add(dot);
+// --- GRADE (DESENHADA NO FUNDO, NÃO SÃO MAIS OBJETOS) ---
+// Antes eram 3.600 bolinhas, cada uma um objeto: deixava o celular lento e o
+// "desfazer" guardava todas elas a cada passo. Agora a grade é só um desenho de
+// fundo, infinita, e o toque encaixa no ponto mais próximo.
+const GRADE_ESPACO = 60;
+const GRADE_ORIGEM = 40;
+let mostrarGrade = true;
+
+function pontoDaGrade(x, y) {
+    return {
+        x: Math.round((x - GRADE_ORIGEM) / GRADE_ESPACO) * GRADE_ESPACO + GRADE_ORIGEM,
+        y: Math.round((y - GRADE_ORIGEM) / GRADE_ESPACO) * GRADE_ESPACO + GRADE_ORIGEM
+    };
+}
+
+// Um "nó" da grade é só uma posição. Tem o mesmo formato que o resto do código espera.
+function pontoDaGradeComoNo(pointer) {
+    let p = pontoDaGrade(pointer.x, pointer.y);
+    return { id_tipo: 'grid_dot', left: p.x, top: p.y };
+}
+
+function desenharGrade(opt) {
+    if (!mostrarGrade) return;
+    let ctx = opt.ctx; let v = canvas.viewportTransform; let zoom = v[0];
+    ctx.save();
+    ctx.fillStyle = '#e0e0e0'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    let x0 = -v[4] / zoom, y0 = -v[5] / zoom;
+    let x1 = x0 + canvas.width / zoom, y1 = y0 + canvas.height / zoom;
+    let inicio = pontoDaGrade(x0, y0);
+    let raio = Math.max(2.5, 4 * zoom);
+    ctx.fillStyle = '#a4adb3';
+    ctx.beginPath();
+    for (let gx = inicio.x - GRADE_ESPACO; gx <= x1 + GRADE_ESPACO; gx += GRADE_ESPACO) {
+        for (let gy = inicio.y - GRADE_ESPACO; gy <= y1 + GRADE_ESPACO; gy += GRADE_ESPACO) {
+            let sx = gx * zoom + v[4], sy = gy * zoom + v[5];
+            ctx.moveTo(sx + raio, sy); ctx.arc(sx, sy, raio, 0, Math.PI * 2);
         }
     }
-    setTimeout(() => { salvarEstado(); }, 500); 
+    ctx.fill();
+    ctx.restore();
 }
-initGrid();
+canvas.on('before:render', desenharGrade);
+salvarEstado();
 
 function novoCroqui() {
     travarToqueFalso();
     if (confirm("⚠️ ATENÇÃO!\n\nTem certeza que deseja apagar TODO o desenho atual?")) {
-        canvas.clear(); historicoCanvas = []; indiceHistorico = -1; atualizarBotoesHistorico();
-        isConnectingMode = false; modoCaboAtivo = null; startNode = null; activeTarget = null; listaMateriaisManuais = [];
-        canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); zoomLevel = 1; initGrid(); updateStatus("Tela limpa. Novo projeto iniciado.");
+        canvas.clear(); historicoCanvas = []; indiceHistorico = -1;
+        isConnectingMode = false; modoCaboAtivo = null; startNode = null; marcadorInicio = null; activeTarget = null; listaMateriaisManuais = [];
+        canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); zoomLevel = 1; salvarEstado(); updateStatus("Tela limpa. Novo projeto iniciado.");
     }
 }
 
@@ -209,26 +266,30 @@ function toggleModoConexao(tipo) {
 }
 
 // --- DESENHO DE CABOS ---
+// Marcador amarelo que mostra de onde o próximo cabo vai sair.
+// Não entra no histórico nem no PDF (excludeFromExport).
+let marcadorInicio = null;
+
+function definirInicio(no) {
+    startNode = no;
+    if (marcadorInicio) canvas.remove(marcadorInicio);
+    marcadorInicio = new fabric.Circle({ left: no.left, top: no.top, radius: 16, fill: 'rgba(241,196,15,0.35)', stroke: '#f1c40f', strokeWidth: 3, originX: 'center', originY: 'center', selectable: false, evented: false, excludeFromExport: true, id_tipo: 'marcador' });
+    canvas.add(marcadorInicio); canvas.requestRenderAll();
+}
+
+function mesmoPonto(a, b) { return a && b && a.left === b.left && a.top === b.top; }
+
 function handleConnectionClick(node) {
-    if (!startNode) {
-        startNode = node; 
-        if (startNode.id_tipo === 'grid_dot') startNode.set('fill', '#f1c40f'); 
-        canvas.renderAll();
-    } else {
-        if (startNode === node) return; 
-        desenharCabo(startNode, node, "40", modoCaboAtivo);
-        activeTarget = node; clickCoords = { x: node.left, y: node.top }; abrirPieMenu(null, node.id_tipo);
-        
-        if (startNode && startNode.id_tipo === 'grid_dot') startNode.set('fill', '#bdc3c7'); 
-        startNode = node;
-        if (startNode.id_tipo === 'grid_dot') startNode.set('fill', '#f1c40f'); 
-        canvas.renderAll();
-    }
+    if (!startNode) { definirInicio(node); return; }
+    if (startNode === node || mesmoPonto(startNode, node)) return;
+    desenharCabo(startNode, node, "40", modoCaboAtivo);
+    activeTarget = node; clickCoords = { x: node.left, y: node.top }; abrirPieMenu(null, node.id_tipo);
+    definirInicio(node);
 }
 
 function resetStartNode() {
-    if (startNode && startNode.id_tipo === 'grid_dot') startNode.set('fill', '#bdc3c7');
-    startNode = null; canvas.renderAll();
+    if (marcadorInicio) canvas.remove(marcadorInicio);
+    marcadorInicio = null; startNode = null; canvas.requestRenderAll();
 }
 
 function desenharCabo(p1, p2, metragem, tipo) {
@@ -423,7 +484,7 @@ function confirmarCTO() {
     // LINHA DELETADA: O ponto cinza agora fica vivo no fundo!
     canvas.add(group); canvas.bringToFront(group);
     
-    activeTarget = group; if (isConnectingMode) startNode = group;
+    activeTarget = group; if (isConnectingMode) definirInicio(group);
     document.getElementById('modalCTO').style.display = 'none'; fecharPieMenu(); salvarEstado();
 }
 
@@ -432,7 +493,7 @@ function inserirCEO(x, y) {
     let circle = new fabric.Circle({ radius: 24, fill: isNova ? 'black' : 'white', stroke: 'black', strokeWidth: isNova ? 0 : 3, originX: 'center', originY: 'center' });
     let lbl = new fabric.Text("CEO", { fontSize: 13, fill: isNova ? 'white' : 'black', fontWeight: 'bold', originX: 'center', originY: 'center' });
     let group = new fabric.Group([circle, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_cabo' });
-    canvas.add(group); activeTarget = group; if (isConnectingMode) startNode = group; fecharPieMenu(); salvarEstado();
+    canvas.add(group); activeTarget = group; if (isConnectingMode) definirInicio(group); fecharPieMenu(); salvarEstado();
 }
 
 function inserirCS(x, y) {
@@ -441,7 +502,7 @@ function inserirCS(x, y) {
     let rect = new fabric.Rect({ width: 80, height: 50, fill: '#bdc3c7', stroke: '#34495e', strokeWidth: 2, rx: 4, ry: 4, originX: 'center', originY: 'center' });
     let lbl = new fabric.Text(labelText, { fontSize: 18, fill: '#2c3e50', fontWeight: 'bold', fontFamily: 'Roboto', originX: 'center', originY: 'center' });
     let group = new fabric.Group([rect, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    canvas.add(group); activeTarget = group; if (isConnectingMode) startNode = group; fecharPieMenu(); salvarEstado();
+    canvas.add(group); activeTarget = group; if (isConnectingMode) definirInicio(group); fecharPieMenu(); salvarEstado();
 }
 
 function inserirSubida(x, y) {
@@ -449,14 +510,14 @@ function inserirSubida(x, y) {
     // Fundo branco sólido para tapar o ponto cinza que ficou embaixo
     let bgCircle = new fabric.Circle({ radius: 20, fill: '#ffffff', originX: 'center', originY: 'center' });
     let group = new fabric.Group([bgCircle, p], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    canvas.add(group); activeTarget = group; if (isConnectingMode) startNode = group; fecharPieMenu(); salvarEstado();
+    canvas.add(group); activeTarget = group; if (isConnectingMode) definirInicio(group); fecharPieMenu(); salvarEstado();
 }
 
 function inserirPosteMapeado(x, y, tipo) {
     let circle = new fabric.Circle({ radius: 18, fill: '#3498db', originX: 'center', originY: 'center' });
     let lbl = new fabric.Text(tipo.replace('Poste ', ''), { fontSize: 13, fill: 'white', fontWeight: 'bold', originX: 'center', originY: 'center' });
     let group = new fabric.Group([circle, lbl], { left: x, top: y, originX: 'center', originY: 'center', lockMovementX: true, lockMovementY: true, hasControls: false, id_tipo: 'equipamento_poste' });
-    canvas.add(group); activeTarget = group; if (isConnectingMode) startNode = group; abrirSubMenuPoste(x, y); salvarEstado();
+    canvas.add(group); activeTarget = group; if (isConnectingMode) definirInicio(group); abrirSubMenuPoste(x, y); salvarEstado();
 }
 
 function addSimbologia(tipo) {
@@ -576,10 +637,10 @@ function confirmarSalvar() {
         var exportWidth = 1280; var exportHeight = 720;
 
         canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); // Reseta câmera
-        canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', false); }); 
+        resetStartNode(); mostrarGrade = false; 
 
         // 2. Transforma em Grupo REAL (Remove os soltos e impede duplicatas e cortes na foto)
-        var drawnObjects = canvas.getObjects().filter(o => o.id_tipo !== 'grid_dot'); 
+        var drawnObjects = canvas.getObjects().filter(o => o.id_tipo !== 'marcador'); 
         var g = null; var origGroupState = {};
         if(drawnObjects.length > 0) {
             var sel = new fabric.ActiveSelection(drawnObjects, { canvas: canvas });
@@ -638,8 +699,8 @@ function confirmarSalvar() {
         if (wrap) { wrap.setAttribute('style', origWrapStyle); } // Devolve travas CSS
         canvas.setWidth(originalWidth); canvas.setHeight(originalHeight); canvas.setViewportTransform(vptOriginal); 
         
-        canvas.getObjects().forEach(o => { if (o.id_tipo === 'grid_dot') o.set('visible', true); }); 
-        canvas.setBackgroundColor('#e0e0e0', canvas.renderAll.bind(canvas));
+        mostrarGrade = true;
+        canvas.setBackgroundColor('', canvas.renderAll.bind(canvas));
     }, 100);
 }
 
